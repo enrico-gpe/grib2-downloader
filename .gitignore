@@ -1,0 +1,13 @@
+# Cache Python
+__pycache__/
+*.pyc
+
+# Ambiente Virtuale
+venv/
+.venv/
+
+# File dati generati
+*.grb
+*.grb2
+*.ctl
+*.idx
