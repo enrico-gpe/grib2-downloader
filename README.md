@@ -11,7 +11,7 @@ eather GRIB2 Downloader is a Python-based GUI application designed to simplify t
 ![GFS Downloader GUI Preview](gui_preview.jpg)
 
 [![Python](https://img.shields.io/badge/python-3.8%2B-blue.svg)](https://www.python.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Format](https://img.shields.io/badge/Data-GRIB2-orange.svg)](https://www.wmo.int/)
 [![GrADS](https://img.shields.io/badge/GrADS-Compatible-green.svg)](http://cola.gmu.edu/grads/)
 
