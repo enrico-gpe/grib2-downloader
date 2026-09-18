@@ -1,7 +1,12 @@
-# GFS GRIB2 Subregion Downloader
+# GFS & ICON-EU GRIB2 Subregion Downloader
+## (Interactive Map Edition) 🌍🌦️
 
-A Python-based GUI application designed to download custom subregional GFS (0.25°) meteorological data directly from NOAA NOMADS servers in GRIB2 format.
-The downloaded GRIB2 files can be opened and visualized directly in **XyGrib** or processed using **GrADS**.
+eather GRIB2 Downloader is a Python-based GUI application designed to simplify the extraction of subsetted **GFS** (0.25°) and **ICON-EU** meteorological data in **GRIB2** format directly from NOAA NOMADS and DWD OpenData servers.
+
+    Interactive Selection: Select your geographic area of interest (Bounding Box) via 2 clicks on an integrated interactive map.
+
+    Compatibility: Downloaded GRIB2 files are fully compatible with **XyGrib** for visualization and **GrADS** for advanced processing.
+
 
 ![GFS Downloader GUI Preview](gui_preview.jpg)
 
@@ -21,7 +26,18 @@ The downloaded GRIB2 files can be opened and visualized directly in **XyGrib** o
 * **Native GrADS Compatibility:** Generates a unified `.grb2` output completely structure-mapped for `g2ctl` and `gribmap`.
 * **Threaded Execution:** Multi-threaded architecture ensures a responsive user interface during heavy downloads.
 
+## 🚀 What's New in Version 2.0.0
+
+* **Integrated Interactive Map**: Define the geographic Bounding Box directly via 2 clicks on the map.
+* **Multi-Model Support**:
+  * **GFS (NOAA)**: Custom downloads filtered by bounding box, time range, and specific variable selection (temperature, wind vectors, precipitation, CAPE, CIN, geopotential height, etc.).
+  * **ICON-EU (DWD)**: Automated retrieval and `bz2` decompression of single-level parameters directly from DWD OpenData.
+* **Console Debug Logging**: Real-time tracking of file names and download links printed directly to the terminal console.
+
 ---
+
+
+
 
 ## 🛠️ System Requirements & Dependencies
 
