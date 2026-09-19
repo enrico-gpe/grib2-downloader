@@ -82,24 +82,24 @@ Use the built-in action buttons directly in the application:
 
 ## Option B: Manual Command Line (GrADS)
 
-# 1. Generate control file (.ctl)
+### 1. Generate control file (.ctl)
 g2ctl custom_weather.grb2 > custom_weather.ctl
 
-# 2. Build GRIB map index file (.idx)
+### 2. Build GRIB map index file (.idx)
 gribmap -v -i custom_weather.ctl 0
 
-# 3. Launch GrADS session
+### 3. Launch GrADS session
 grads -l
 ga-> open custom_weather.ctl
 ga-> q file
 ga-> set gxout shaded
 ga-> d hgt500mb
 
-# Note: 
+## Note: 
 
 GrADS functionality is guaranteed when downloaded from OpenGrADS or compiled with native GRIB2 support; in some Ubuntu package versions, gribmap may fail to index GRIB2 files properly.
 
 
-## 📄 License
+### 📄 License
 
 Distributed under the GNU General Public License v3.0 (GNU GPLv3). See the LICENSE file for details
