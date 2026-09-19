@@ -1,7 +1,6 @@
-# Dipendenze GUI e Mappa
+# Interfaccia mappa e ottimizzazione rendering immagini
 tkintermapview>=1.0.8
-Pillow>=10.0.0
-requests>=2.31.0
+#Pillow>=10.0.0
 
-# Supporto facoltativo per elaborazione dati locale (es. xarray/cfgrib)
-# certifi>=2023.7.22
+# Gestione delle richieste HTTP
+urllib3>=2.0.0
