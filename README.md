@@ -10,6 +10,26 @@
 
 Weather GRIB2 Downloader v3.0 is a Python GUI application designed to extract subsetted **GFS** (0.25°) and **ICON-EU** weather data in **GRIB2** format, featuring seamless, one-click integration with **XyGrib** and **GrADS** for real-time visualization and spatial analysis.
 
+## 📸 Application Screenshots
+
+<p align="center">
+  <b>1. Main Interface & Interactive Map Selection</b><br>
+  <img src="docs/gui_preview.jpg" alt="Interactive Map Selection" width="850"/>
+</p>
+
+<br>
+
+<p align="center">
+  <b>2. Real-Time Multi-threaded Download Progress</b><br>
+  <img src="docs/download.jpg" alt="Download Progress" width="500"/>
+</p>
+
+<br>
+
+<p align="center">
+  <b>3. Direct One-Click Visualization in XyGrib and GrADS</b><br>
+  <img src="docs/preview.jpg" alt="XyGrib and GrADS Visualization" width="900"/>
+</p>
 ---
 
 ## 🌟 Key Features
@@ -100,6 +120,23 @@ ga-> d hgt500mb
 
 GrADS functionality is guaranteed when downloaded from OpenGrADS or compiled with native GRIB2 support; in some Ubuntu package versions, gribmap may fail to index GRIB2 files properly.
 
+## Tips: 
+
+For ultra fast use add in your .bashrc this code, at next reboot you can launch the app with xygrib-downloader command  
+
+function xygrib-downloader() {
+    # Ti sposti nella cartella del progetto
+    cd ~/Programmi/gfs-icon-grads/gfs_downloader || return
+    
+    # Attivi il virtual environment (usando venv)
+    source venv/bin/activate
+    
+    # Lanci lo script
+    main.py
+    
+    # Opzionale: disattiva l'ambiente quando chiudi lo script
+    deactivate
+}
 
 ### 📄 License
 
