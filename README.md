@@ -10,6 +10,24 @@
 
 Weather GRIB2 Downloader v3.0 is a Python GUI application designed to extract subsetted **GFS** (0.25°) and **ICON-EU** weather data in **GRIB2** format, featuring seamless, one-click integration with **XyGrib** and **GrADS** for real-time visualization and spatial analysis.
 
+
+---
+
+## 🌟 Key Features
+
+* **Interactive Map Selector:** Define your geographic bounding box (N/S/W/E) visually using a 2-click interface powered by OpenStreetMap[cite: 1, 2].
+* **Strict Variable & Level Mapping:** Direct coupling of meteorological variables to specific vertical levels to prevent HTTP 404 server errors on NOAA NOMADS[cite: 2].
+* **Multi-Model Support:**
+  * **GFS (NOAA)**: Custom subsetting by bounding box, time step ranges, and target variables (2m/850hPa Temp, 0°C Isotherm, 500hPa Geopotential Height, 10m Wind & Gusts, CAPE, CIN, Total Precipitation, Cloud Cover)[cite: 1, 2].
+  * **ICON-EU (DWD)**: Automated download and `.bz2` decompression of single-level parameters directly from DWD OpenData[cite: 1, 2].
+* **Flexible Time Horizon:** Seamlessly merges past analysis runs and future forecast steps into a single unified file[cite: 2].
+* **Automated GrADS Integration:** Dynamic generation of `startup.gs` control scripts with automatic `g2ctl` and `gribmap` indexing.
+* **XyGrib Integration:** One-click launch via `/usr/bin/XyGrib` for smooth spatial navigation of downloaded fields.
+* **Auto File Detection:** Automatically detects previously downloaded `.grb2` files in the working directory on startup, enabling visualizer buttons instantly.
+* **Multi-threaded Architecture:** Keeps the graphical user interface smooth and responsive during active downloads[cite: 2].
+
+---
+
 ## 📸 Application Screenshots
 
 <p align="center">
@@ -30,22 +48,7 @@ Weather GRIB2 Downloader v3.0 is a Python GUI application designed to extract su
   <b>3. Direct One-Click Visualization in XyGrib and GrADS</b><br>
   <img src="docs/preview.jpg" alt="XyGrib and GrADS Visualization" width="900"/>
 </p>
----
 
-## 🌟 Key Features
-
-* **Interactive Map Selector:** Define your geographic bounding box (N/S/W/E) visually using a 2-click interface powered by OpenStreetMap[cite: 1, 2].
-* **Strict Variable & Level Mapping:** Direct coupling of meteorological variables to specific vertical levels to prevent HTTP 404 server errors on NOAA NOMADS[cite: 2].
-* **Multi-Model Support:**
-  * **GFS (NOAA)**: Custom subsetting by bounding box, time step ranges, and target variables (2m/850hPa Temp, 0°C Isotherm, 500hPa Geopotential Height, 10m Wind & Gusts, CAPE, CIN, Total Precipitation, Cloud Cover)[cite: 1, 2].
-  * **ICON-EU (DWD)**: Automated download and `.bz2` decompression of single-level parameters directly from DWD OpenData[cite: 1, 2].
-* **Flexible Time Horizon:** Seamlessly merges past analysis runs and future forecast steps into a single unified file[cite: 2].
-* **Automated GrADS Integration:** Dynamic generation of `startup.gs` control scripts with automatic `g2ctl` and `gribmap` indexing.
-* **XyGrib Integration:** One-click launch via `/usr/bin/XyGrib` for smooth spatial navigation of downloaded fields.
-* **Auto File Detection:** Automatically detects previously downloaded `.grb2` files in the working directory on startup, enabling visualizer buttons instantly.
-* **Multi-threaded Architecture:** Keeps the graphical user interface smooth and responsive during active downloads[cite: 2].
-
----
 
 ## 🚀 What's New in Version 3.0
 
