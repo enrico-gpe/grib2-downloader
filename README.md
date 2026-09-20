@@ -135,7 +135,7 @@ function xygrib-downloader() {
     source venv/bin/activate
     
     # Lanci lo script
-    main.py
+    python main.py
     
     # Opzionale: disattiva l'ambiente quando chiudi lo script
     deactivate
