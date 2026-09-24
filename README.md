@@ -1,4 +1,4 @@
-# Weather GRIB2 Downloader v3.0
+# Weather GRIB2 Downloader v3.1.0
 ## Automated Subregion Extraction with Direct XyGrib & GrADS Integration 🌍📊
 
 [![Python](https://img.shields.io/badge/python-3.8%2B-blue.svg)](https://www.python.org/)
@@ -8,7 +8,7 @@
 [![XyGrib](https://img.shields.io/badge/XyGrib-Supported-brightgreen.svg)](https://opengribs.org/)
 
 
-Weather GRIB2 Downloader v3.0 is a Python GUI application designed to extract subsetted **GFS** (0.25°) and **ICON-EU** weather data in **GRIB2** format, featuring seamless, one-click integration with **XyGrib** and **GrADS** for real-time visualization and spatial analysis.
+Weather GRIB2 Downloader v3.1.0 is a Python GUI application designed to extract subsetted **GFS** (0.25°) and **ICON-EU** weather data in **GRIB2** format, featuring seamless, one-click integration with **XyGrib** and **GrADS** for real-time visualization and spatial analysis.
 
 
 ---
@@ -50,7 +50,7 @@ Weather GRIB2 Downloader v3.0 is a Python GUI application designed to extract su
 </p>
 
 
-## 🚀 What's New in Version 3.0
+## 🚀 What's New in Version 3.1.0
 
 * **Modular Refactoring:** Clean project architecture organized into reusable Python packages inside the `src/` directory.
 * **Automated GrADS Pipeline**:
@@ -58,6 +58,11 @@ Weather GRIB2 Downloader v3.0 is a Python GUI application designed to extract su
   * Reactive rendering optimized for single-timestep defaults ($t=1$) for maximum performance.
 * **XyGrib Support:** Dynamic binary path detection and launch capabilities.
 * **Existing File Detection:** Startup scan enables visualization buttons if a `.grb2` dataset is already present in the destination path.
+
+
+* **Native Cross-Platform XyGrib Support:** Completely refactored the external viewer launcher to run out-of-the-box across Linux (`xygrib`), macOS (`open -a XyGrib`), and Windows (auto-detecting standard paths like `C:\Program Files\XyGrib\`).
+* **Mean Sea Level Pressure (PRMSL) Added:** Integrated sea-level pressure (`prmslmsl` / `PRMSL:mean sea level`) into GFS download queries for synoptic chart and isobar rendering.
+* **Persistent Settings Management (`ConfigManager`):** Introduced a dedicated JSON configuration module (`src/config_manager.py`) to automatically save and restore user preferences (Bounding Box, forecast time ranges, output paths, and selected variables) across app restarts.
 
 ---
 
