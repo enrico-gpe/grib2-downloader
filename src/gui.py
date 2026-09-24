@@ -14,7 +14,7 @@ from .download_gfs import GFS_VARS, GfsDownloader
 from .download_icon import ICON_VARS, IconEuDownloader
 from .grads_handler import GradsHandler
 from .xygrib_handler import XyGribHandler
-
+from .config_manager import ConfigManager
 
 class GRIB2DownloaderGUI:
 
@@ -22,6 +22,9 @@ class GRIB2DownloaderGUI:
         self.root = root
         self.root.title("Weather GRIB2 Downloader v3.0 (GFS / ICON-EU)")
         self.root.geometry("1280x850")
+
+        # 1. Carica le impostazioni dal file JSON
+        self.config = ConfigManager.load_config()
 
         self.last_downloaded_file = None
 
@@ -75,6 +78,9 @@ class GRIB2DownloaderGUI:
         # Popola subito le variabili all'avvio
         self.update_variable_checkboxes()
 
+        # Salva automaticamente la configurazione alla chiusura dell'app
+        self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
+
         # Controlla se esiste gia un file GRIB2 nella cartella corrente per abilitare i tasti
         try:
             ultimo = GradsHandler.ottieni_ultimo_grib2(self.ent_dir_path.get())
@@ -98,7 +104,10 @@ class GRIB2DownloaderGUI:
             values=["GFS (NOAA NOMADS)", "ICON-EU (DWD OpenData)"],
             state="readonly",
         )
-        self.cmb_model.current(0)
+
+        # Seleziona il modello salvato nel file config
+        saved_model = self.config.get("model", "GFS (NOAA NOMADS)")
+        self.cmb_model.set(saved_model)
         self.cmb_model.pack(fill=tk.X, pady=2)
         self.cmb_model.bind("<<ComboboxSelected>>", self.on_model_change)
 
@@ -108,32 +117,24 @@ class GRIB2DownloaderGUI:
         )
         lbl_area.pack(fill=tk.X, pady=5)
 
-        ttk.Label(lbl_area, text="North (Lat Max):").grid(
-            row=0, column=0, sticky="e"
-        )
+        ttk.Label(lbl_area, text="North (Lat Max):").grid(row=0, column=0, sticky="e")
         self.ent_north = ttk.Entry(lbl_area, width=8)
-        self.ent_north.insert(0, "48.0")
+        self.ent_north.insert(0, self.config.get("north", "48.0"))
         self.ent_north.grid(row=0, column=1, padx=5, pady=2)
 
-        ttk.Label(lbl_area, text="South (Lat Min):").grid(
-            row=1, column=0, sticky="e"
-        )
+        ttk.Label(lbl_area, text="South (Lat Min):").grid(row=1, column=0, sticky="e")
         self.ent_south = ttk.Entry(lbl_area, width=8)
-        self.ent_south.insert(0, "43.5")
+        self.ent_south.insert(0, self.config.get("south", "43.5"))
         self.ent_south.grid(row=1, column=1, padx=5, pady=2)
 
-        ttk.Label(lbl_area, text="West (Lon Min):").grid(
-            row=2, column=0, sticky="e"
-        )
+        ttk.Label(lbl_area, text="West (Lon Min):").grid(row=2, column=0, sticky="e")
         self.ent_west = ttk.Entry(lbl_area, width=8)
-        self.ent_west.insert(0, "5.0")
+        self.ent_west.insert(0, self.config.get("west", "5.0"))
         self.ent_west.grid(row=2, column=1, padx=5, pady=2)
 
-        ttk.Label(lbl_area, text="East (Lon Max):").grid(
-            row=3, column=0, sticky="e"
-        )
+        ttk.Label(lbl_area, text="East (Lon Max):").grid(row=3, column=0, sticky="e")
         self.ent_east = ttk.Entry(lbl_area, width=8)
-        self.ent_east.insert(0, "16.0")
+        self.ent_east.insert(0, self.config.get("east", "16.0"))
         self.ent_east.grid(row=3, column=1, padx=5, pady=2)
 
         self.btn_select_map = ttk.Button(
@@ -186,25 +187,19 @@ class GRIB2DownloaderGUI:
         )
         lbl_time.pack(fill=tk.X, pady=5)
 
-        ttk.Label(lbl_time, text="Ore Passate:").grid(
-            row=0, column=0, sticky="e"
-        )
+        ttk.Label(lbl_time, text="Ore Passate:").grid(row=0, column=0, sticky="e")
         self.ent_start_h = ttk.Entry(lbl_time, width=6)
-        self.ent_start_h.insert(0, "-18")
+        self.ent_start_h.insert(0, self.config.get("start_h", "-18"))
         self.ent_start_h.grid(row=0, column=1, padx=5, pady=2)
 
-        ttk.Label(lbl_time, text="Ore Future:").grid(
-            row=1, column=0, sticky="e"
-        )
+        ttk.Label(lbl_time, text="Ore Future:").grid(row=1, column=0, sticky="e")
         self.ent_end_h = ttk.Entry(lbl_time, width=6)
-        self.ent_end_h.insert(0, "120")
+        self.ent_end_h.insert(0, self.config.get("end_h", "120"))
         self.ent_end_h.grid(row=1, column=1, padx=5, pady=2)
 
-        ttk.Label(lbl_time, text="Passo Orario (h):").grid(
-            row=2, column=0, sticky="e"
-        )
+        ttk.Label(lbl_time, text="Passo Orario (h):").grid(row=2, column=0, sticky="e")
         self.ent_step_h = ttk.Entry(lbl_time, width=6)
-        self.ent_step_h.insert(0, "3")
+        self.ent_step_h.insert(0, self.config.get("step_h", "3"))
         self.ent_step_h.grid(row=2, column=1, padx=5, pady=2)
 
         # 5. Output
@@ -214,6 +209,10 @@ class GRIB2DownloaderGUI:
         ttk.Label(lbl_out, text="Cartella di Destinazione:").pack(anchor="w")
         dir_frame = ttk.Frame(lbl_out)
         dir_frame.pack(fill=tk.X, pady=2)
+
+        self.ent_dir_path = ttk.Entry(dir_frame)
+        self.ent_dir_path.insert(0, self.config.get("output_dir", os.getcwd()))
+        self.ent_dir_path.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 2))
 
         self.ent_dir_path = ttk.Entry(dir_frame)
         self.ent_dir_path.insert(0, os.getcwd())
@@ -226,11 +225,9 @@ class GRIB2DownloaderGUI:
         )
         btn_browse.pack(side=tk.RIGHT)
 
-        ttk.Label(lbl_out, text="Nome File Output:").pack(
-            anchor="w", pady=(5, 0)
-        )
+        ttk.Label(lbl_out, text="Nome File Output:").pack(anchor="w", pady=(5, 0))
         self.ent_out_name = ttk.Entry(lbl_out)
-        self.ent_out_name.insert(0, "custom_weather.grb2")
+        self.ent_out_name.insert(0, self.config.get("output_file", "custom_weather.grb2"))
         self.ent_out_name.pack(fill=tk.X, pady=2)
 
         # 6. Esecuzione & Visualizzatori
@@ -342,17 +339,26 @@ class GRIB2DownloaderGUI:
 
         self.update_variable_checkboxes()
 
+
     def update_variable_checkboxes(self):
         for widget in self.vars_container.winfo_children():
             widget.destroy()
 
         self.var_checks.clear()
 
-        target_dict = GFS_VARS if "GFS" in self.cmb_model.get() else ICON_VARS
+        is_gfs = "GFS" in self.cmb_model.get()
+        target_dict = GFS_VARS if is_gfs else ICON_VARS
+        saved_key = "selected_vars_gfs" if is_gfs else "selected_vars_icon"
+        saved_vars = self.config.get(saved_key, None)
+
         print(f"[DEBUG] Generazione Checkbox per {len(target_dict)} variabili.")
 
         for name in target_dict.keys():
-            var = tk.BooleanVar(value=True)
+            # Se salvato nel config usa il valore precedente, altrimenti seleziona di default (True)
+            initial_val = (
+                True if saved_vars is None or len(saved_vars) == 0 else (name in saved_vars)
+            )
+            var = tk.BooleanVar(value=initial_val)
             chk = ttk.Checkbutton(self.vars_container, text=name, variable=var)
             chk.pack(anchor="w", pady=2)
             self.var_checks[name] = var
@@ -638,3 +644,35 @@ class GRIB2DownloaderGUI:
                 "Errore XyGrib", f"Impossibile avviare XyGrib:\n{e}"
             )
             self.lbl_status.config(text="Errore XyGrib.", foreground="red")
+
+    def save_current_settings(self):
+        """Raccoglie tutti i valori attuali della GUI e li salva tramite ConfigManager."""
+        is_gfs = "GFS" in self.cmb_model.get()
+
+        # Aggiorna la lista delle variabili salvate per il modello attivo
+        selected_vars = [
+            name for name, is_sel in self.var_checks.items() if is_sel.get()
+        ]
+
+        if is_gfs:
+            self.config["selected_vars_gfs"] = selected_vars
+        else:
+            self.config["selected_vars_icon"] = selected_vars
+
+        self.config["model"] = self.cmb_model.get()
+        self.config["north"] = self.ent_north.get().strip()
+        self.config["south"] = self.ent_south.get().strip()
+        self.config["west"] = self.ent_west.get().strip()
+        self.config["east"] = self.ent_east.get().strip()
+        self.config["start_h"] = self.ent_start_h.get().strip()
+        self.config["end_h"] = self.ent_end_h.get().strip()
+        self.config["step_h"] = self.ent_step_h.get().strip()
+        self.config["output_dir"] = self.ent_dir_path.get().strip()
+        self.config["output_file"] = self.ent_out_name.get().strip()
+
+        ConfigManager.save_config(self.config)
+
+    def on_closing(self):
+        """Gestisce l'evento di chiusura della finestra Tkinter."""
+        self.save_current_settings()
+        self.root.destroy()

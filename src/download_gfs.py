@@ -8,6 +8,7 @@ import urllib.request
 GFS_VARS = {
     "Zero Isotherm Height (HGT 0C)": "&var_HGT=on&lev_0C_isotherm=on",
     "2m Temperature (TMP 2m)": "&var_TMP=on&lev_2_m_above_ground=on",
+    "Pressione MSL": "&var_PRMSL=on&lev_mean_sea_level=on",
     "850 hPa Temp (TMP 850mb)": "&var_TMP=on&lev_850_mb=on",
     "500 hPa Height (HGT 500mb)": "&var_HGT=on&lev_500_mb=on",
     "Total Precip (APCP sfc)": "&var_APCP=on&lev_surface=on",
