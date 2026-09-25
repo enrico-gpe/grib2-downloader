@@ -214,11 +214,6 @@ class GRIB2DownloaderGUI:
         self.ent_dir_path.insert(0, self.config.get("output_dir", os.getcwd()))
         self.ent_dir_path.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 2))
 
-        self.ent_dir_path = ttk.Entry(dir_frame)
-        self.ent_dir_path.insert(0, os.getcwd())
-        self.ent_dir_path.pack(
-            side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 2)
-        )
 
         btn_browse = ttk.Button(
             dir_frame, text="Sfoglia...", command=self.browse_directory
