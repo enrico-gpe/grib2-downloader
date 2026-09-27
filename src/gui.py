@@ -225,7 +225,7 @@ class GRIB2DownloaderGUI:
         self.ent_out_name.insert(0, self.config.get("output_file", "custom_weather.grb2"))
         self.ent_out_name.pack(fill=tk.X, pady=2)
 
-        # 6. Esecuzione & Visualizzatori
+        # 6. Esecuzione & Visualizzazione
         lbl_action = ttk.LabelFrame(
             self.left_frame, text=" Esecuzione & Visualizzazione ", padding=8
         )
@@ -253,6 +253,15 @@ class GRIB2DownloaderGUI:
         )
         self.btn_xygrib.pack(fill=tk.X, pady=3)
 
+        #aggiunta pulsante per salvare configurazione
+        self.btn_save_config = ttk.Button(
+            lbl_action,
+            text="💾 Salva Configurazione",
+            command=lambda: self.save_current_settings(show_feedback=True),
+        )
+        self.btn_save_config.pack(fill=tk.X, pady=(6, 3))
+
+        #Area di Stato e Progressbar
         self.progress = ttk.Progressbar(
             lbl_action, orient="horizontal", mode="determinate"
         )
@@ -261,6 +270,8 @@ class GRIB2DownloaderGUI:
             lbl_action, text="Stato: In attesa...", foreground="gray"
         )
         self.lbl_status.pack(anchor="w", pady=2)
+
+
 
     def browse_directory(self):
         selected_dir = filedialog.askdirectory(
@@ -640,7 +651,7 @@ class GRIB2DownloaderGUI:
             )
             self.lbl_status.config(text="Errore XyGrib.", foreground="red")
 
-    def save_current_settings(self):
+    def save_current_settings(self, show_feedback=False):
         """Raccoglie tutti i valori attuali della GUI e li salva tramite ConfigManager."""
         is_gfs = "GFS" in self.cmb_model.get()
 
@@ -667,7 +678,14 @@ class GRIB2DownloaderGUI:
 
         ConfigManager.save_config(self.config)
 
+        if show_feedback:
+            self.lbl_status.config(
+                text="Impostazioni salvate con successo!", foreground="green"
+            )
+            print("[DEBUG] Configurazione salvata manualmente dall'utente.")
+
+
     def on_closing(self):
         """Gestisce l'evento di chiusura della finestra Tkinter."""
-        self.save_current_settings()
+        self.save_current_settings(show_feedback=False)
         self.root.destroy()
