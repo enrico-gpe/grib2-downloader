@@ -1,4 +1,3 @@
-```markdown
 # Weather GRIB2 Downloader v3.2.0
 ## Automated Subregion Extraction with GFS Wave & Direct XyGrib / GrADS Integration 🌍📊
 
@@ -76,23 +75,6 @@ sudo apt install python3 python3-pip python3-venv python3-tk grads g2ctl xygrib
 sudo dnf install python3 python3-pip python3-tkinter grads xygrib
 
 ```
-
-### macOS (via Homebrew)
-
-Install Python 3, Tkinter support, and external visualization tools using [Homebrew](https://brew.sh/):
-
-```bash
-# Install dependencies via Homebrew
-brew install python python-tk grads
-
-# Install XyGrib (if using Cask/binary, or download directly from OpenGribs)
-brew install --cask xygrib
-
-```
-
-> **macOS Note:** Ensure `python3-tk` (Tkinter) is properly linked to your Python installation so the GUI opens smoothly without graphics engine warnings.
-
----
 
 ## 🚀 Quick Start
 
