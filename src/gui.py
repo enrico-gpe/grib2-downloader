@@ -10,7 +10,9 @@ from tkinter import filedialog, messagebox, ttk
 
 import tkintermapview
 
-from .download_gfs import GFS_VARS, GfsDownloader
+from .download_gfs import GfsDownloader
+from .gfs_atmos import GFS_ATMOS_VARS
+from .gfs_wave import GFS_WAVE_VARS
 from .download_icon import ICON_VARS, IconEuDownloader
 from .grads_handler import GradsHandler
 from .xygrib_handler import XyGribHandler
@@ -20,7 +22,7 @@ class GRIB2DownloaderGUI:
 
     def __init__(self, root):
         self.root = root
-        self.root.title("Weather GRIB2 Downloader v3.0 (GFS / ICON-EU)")
+        self.root.title("Weather GRIB2 Downloader v3.2.0 (GFS / ICON-EU)")
         self.root.geometry("1280x850")
 
         # 1. Carica le impostazioni dal file JSON
@@ -31,25 +33,21 @@ class GRIB2DownloaderGUI:
         self.paned_window = ttk.PanedWindow(self.root, orient=tk.HORIZONTAL)
         self.paned_window.pack(fill=tk.BOTH, expand=True)
 
+        # Contenitore Sinistro con Scrollbar Globale
         self.left_container = ttk.Frame(self.paned_window)
         self.right_frame = ttk.Frame(self.paned_window, padding=5)
 
         self.paned_window.add(self.left_container, weight=1)
         self.paned_window.add(self.right_frame, weight=3)
 
-        self.scrollbar = ttk.Scrollbar(self.left_container, orient="vertical")
-        self.left_canvas = tk.Canvas(
-            self.left_container,
-            highlightthickness=0,
-            yscrollcommand=self.scrollbar.set,
+        # Canvas e Scrollbar per tutta la colonna sinistra
+        self.left_canvas = tk.Canvas(self.left_container, highlightthickness=0)
+        self.left_scrollbar = ttk.Scrollbar(
+            self.left_container, orient="vertical", command=self.left_canvas.yview
         )
-        self.scrollbar.config(command=self.left_canvas.yview)
-
-        self.scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-        self.left_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-
         self.left_frame = ttk.Frame(self.left_canvas, padding=10)
-        self.canvas_window = self.left_canvas.create_window(
+
+        self.left_window_id = self.left_canvas.create_window(
             (0, 0), window=self.left_frame, anchor="nw"
         )
 
@@ -62,9 +60,28 @@ class GRIB2DownloaderGUI:
         self.left_canvas.bind(
             "<Configure>",
             lambda e: self.left_canvas.itemconfig(
-                self.canvas_window, width=e.width
+                self.left_window_id, width=e.width
             ),
         )
+
+        self.left_canvas.configure(yscrollcommand=self.left_scrollbar.set)
+
+        self.left_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        self.left_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        # Supporto per lo scroll tramite rotellina del mouse sulla colonna sinistra
+        def _on_mousewheel(event):
+            self.left_canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+
+        def _on_mousewheel_linux(event):
+            if event.num == 4:
+                self.left_canvas.yview_scroll(-1, "units")
+            elif event.num == 5:
+                self.left_canvas.yview_scroll(1, "units")
+
+        self.left_canvas.bind_all("<MouseWheel>", _on_mousewheel)
+        self.left_canvas.bind_all("<Button-4>", _on_mousewheel_linux)
+        self.left_canvas.bind_all("<Button-5>", _on_mousewheel_linux)
 
         self.click_step = 0
         self.click_coords = []
@@ -81,7 +98,7 @@ class GRIB2DownloaderGUI:
         # Salva automaticamente la configurazione alla chiusura dell'app
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
 
-        # Controlla se esiste gia un file GRIB2 nella cartella corrente per abilitare i tasti
+        # Controlla se esiste già un file GRIB2 nella cartella corrente per abilitare i tasti
         try:
             ultimo = GradsHandler.ottieni_ultimo_grib2(self.ent_dir_path.get())
             self.last_downloaded_file = ultimo
@@ -98,14 +115,13 @@ class GRIB2DownloaderGUI:
         lbl_model = ttk.LabelFrame(
             self.left_frame, text=" Modello Meteorologico ", padding=8
         )
-        lbl_model.pack(fill=tk.X, pady=5)
+        lbl_model.pack(fill=tk.X, pady=4)
         self.cmb_model = ttk.Combobox(
             lbl_model,
             values=["GFS (NOAA NOMADS)", "ICON-EU (DWD OpenData)"],
             state="readonly",
         )
 
-        # Seleziona il modello salvato nel file config
         saved_model = self.config.get("model", "GFS (NOAA NOMADS)")
         self.cmb_model.set(saved_model)
         self.cmb_model.pack(fill=tk.X, pady=2)
@@ -115,7 +131,7 @@ class GRIB2DownloaderGUI:
         lbl_area = ttk.LabelFrame(
             self.left_frame, text=" Bounding Box Area (°N / °E) ", padding=8
         )
-        lbl_area.pack(fill=tk.X, pady=5)
+        lbl_area.pack(fill=tk.X, pady=4)
 
         ttk.Label(lbl_area, text="North (Lat Max):").grid(row=0, column=0, sticky="e")
         self.ent_north = ttk.Entry(lbl_area, width=8)
@@ -155,37 +171,55 @@ class GRIB2DownloaderGUI:
             row=5, column=0, columnspan=2, pady=2, sticky="ew"
         )
 
-        # 3. Variabili
+        # 3. Variabili (Notebook Standard)
         self.lbl_vars = ttk.LabelFrame(
-            self.left_frame, text=" Variabili Selezionate ", padding=8
+            self.left_frame, text=" Variabili Selezionate ", padding=6
         )
-        self.lbl_vars.pack(fill=tk.X, pady=5)
+        self.lbl_vars.pack(fill=tk.X, pady=4)
 
         btn_frame = ttk.Frame(self.lbl_vars)
         btn_frame.pack(fill=tk.X, pady=2)
+
         ttk.Button(
             btn_frame,
-            text="Tutte",
-            command=lambda: [
-                v.set(True) for v in self.var_checks.values()
-            ],
-        ).pack(side=tk.LEFT, padx=2)
-        ttk.Button(
-            btn_frame,
-            text="Nessuna",
-            command=lambda: [
-                v.set(False) for v in self.var_checks.values()
-            ],
+            text="Tutte (scheda)",
+        # 3. Variabili (Notebook Standard)
+            command=self.select_all_in_current_tab,
         ).pack(side=tk.LEFT, padx=2)
 
-        self.vars_container = ttk.Frame(self.lbl_vars)
-        self.vars_container.pack(fill=tk.X, pady=4)
+        ttk.Button(
+            btn_frame,
+            text="Nessuna (scheda)",
+            command=self.deselect_all_in_current_tab,
+        ).pack(side=tk.LEFT, padx=2)
+
+        # Notebook per le 3 Tab
+        self.vars_notebook = ttk.Notebook(self.lbl_vars)
+        self.vars_notebook.pack(fill=tk.X, pady=4)
+
+        self.tabs = {}
+        for tab_name, tab_title in [
+            ("surface", "🌐 Superficie"),
+            ("quota", "☁️ Quota"),
+            ("wave", "🌊 Onde"),
+        ]:
+            tab_frame = ttk.Frame(self.vars_notebook, padding=5)
+            self.vars_notebook.add(tab_frame, text=f" {tab_title} ")
+            self.tabs[tab_name] = tab_frame
+
+        # nuova posizione salvataggio config
+        self.btn_save_config = ttk.Button(
+            self.left_frame,
+            text="💾 Salva Configurazione",
+            command=lambda: self.save_current_settings(show_feedback=True),
+        )
+        self.btn_save_config.pack(fill=tk.X, pady=(6, 2))
 
         # 4. Range Temporale
         lbl_time = ttk.LabelFrame(
             self.left_frame, text=" Range Temporale ", padding=8
         )
-        lbl_time.pack(fill=tk.X, pady=5)
+        lbl_time.pack(fill=tk.X, pady=4)
 
         ttk.Label(lbl_time, text="Ore Passate:").grid(row=0, column=0, sticky="e")
         self.ent_start_h = ttk.Entry(lbl_time, width=6)
@@ -204,7 +238,7 @@ class GRIB2DownloaderGUI:
 
         # 5. Output
         lbl_out = ttk.LabelFrame(self.left_frame, text=" Output ", padding=8)
-        lbl_out.pack(fill=tk.X, pady=5)
+        lbl_out.pack(fill=tk.X, pady=4)
 
         ttk.Label(lbl_out, text="Cartella di Destinazione:").pack(anchor="w")
         dir_frame = ttk.Frame(lbl_out)
@@ -213,7 +247,6 @@ class GRIB2DownloaderGUI:
         self.ent_dir_path = ttk.Entry(dir_frame)
         self.ent_dir_path.insert(0, self.config.get("output_dir", os.getcwd()))
         self.ent_dir_path.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 2))
-
 
         btn_browse = ttk.Button(
             dir_frame, text="Sfoglia...", command=self.browse_directory
@@ -225,11 +258,15 @@ class GRIB2DownloaderGUI:
         self.ent_out_name.insert(0, self.config.get("output_file", "custom_weather.grb2"))
         self.ent_out_name.pack(fill=tk.X, pady=2)
 
+
         # 6. Esecuzione & Visualizzazione
         lbl_action = ttk.LabelFrame(
             self.left_frame, text=" Esecuzione & Visualizzazione ", padding=8
         )
-        lbl_action.pack(fill=tk.X, pady=5)
+        lbl_action.pack(fill=tk.X, pady=4)
+
+
+
         self.btn_download = ttk.Button(
             lbl_action,
             text="⚡ AVVIA DOWNLOAD GRIB2",
@@ -253,15 +290,7 @@ class GRIB2DownloaderGUI:
         )
         self.btn_xygrib.pack(fill=tk.X, pady=3)
 
-        #aggiunta pulsante per salvare configurazione
-        self.btn_save_config = ttk.Button(
-            lbl_action,
-            text="💾 Salva Configurazione",
-            command=lambda: self.save_current_settings(show_feedback=True),
-        )
-        self.btn_save_config.pack(fill=tk.X, pady=(6, 3))
-
-        #Area di Stato e Progressbar
+        # Area di Stato e Progressbar
         self.progress = ttk.Progressbar(
             lbl_action, orient="horizontal", mode="determinate"
         )
@@ -270,8 +299,6 @@ class GRIB2DownloaderGUI:
             lbl_action, text="Stato: In attesa...", foreground="gray"
         )
         self.lbl_status.pack(anchor="w", pady=2)
-
-
 
     def browse_directory(self):
         selected_dir = filedialog.askdirectory(
@@ -345,33 +372,92 @@ class GRIB2DownloaderGUI:
 
         self.update_variable_checkboxes()
 
-
     def update_variable_checkboxes(self):
-        for widget in self.vars_container.winfo_children():
-            widget.destroy()
+        # Svuota le tab
+        for parent_frame in self.tabs.values():
+            for child in parent_frame.winfo_children():
+                child.destroy()
 
         self.var_checks.clear()
-
         is_gfs = "GFS" in self.cmb_model.get()
-        target_dict = GFS_VARS if is_gfs else ICON_VARS
-        saved_key = "selected_vars_gfs" if is_gfs else "selected_vars_icon"
-        saved_vars = self.config.get(saved_key, None)
 
-        print(f"[DEBUG] Generazione Checkbox per {len(target_dict)} variabili.")
+        if is_gfs:
+            saved_key = "selected_vars_gfs"
+            saved_vars = self.config.get(saved_key, None)
 
-        for name in target_dict.keys():
-            # Se salvato nel config usa il valore precedente, altrimenti seleziona di default (True)
-            initial_val = (
-                True if saved_vars is None or len(saved_vars) == 0 else (name in saved_vars)
-            )
-            var = tk.BooleanVar(value=initial_val)
-            chk = ttk.Checkbutton(self.vars_container, text=name, variable=var)
-            chk.pack(anchor="w", pady=2)
-            self.var_checks[name] = var
+            surface_keys = [
+                "Surface Temp (TMP sfc)", "2m Temperature (TMP 2m)",
+                "Relative Humidity 2m (RH 2m)", "Pressione MSL",
+                "Total Precip (APCP sfc)", "CAPE (Surface)", "CIN (Surface)",
+                "10m Wind Vector (UGRD/VGRD)", "Surface Wind Gust (GUST)"
+            ]
+            quota_keys = [
+                "Zero Isotherm Height (HGT 0C)", "Relative Humidity 0C (RH 0C)",
+                "500 hPa Height (HGT 500mb)", "500 hPa Temp (TMP 500mb)",
+                "Relative Humidity 500hPa (RH 500mb)", "500hPa Wind Vector (UGRD/VGRD)",
+                "850 hPa Height (HGT 850mb)", "850 hPa Temp (TMP 850mb)",
+                "Relative Humidity 850hPa (RH 850mb)", "850hPa Wind Vector (UGRD/VGRD)",
+                "Total Cloud Cover (TCDC)"
+            ]
 
-        # Forza il ricalcolo delle dimensioni della scrollbar
-        self.left_frame.update_idletasks()
-        self.left_canvas.configure(scrollregion=self.left_canvas.bbox("all"))
+            target_dict = {**GFS_ATMOS_VARS, **GFS_WAVE_VARS}
+
+            for name in target_dict.keys():
+                initial_val = (
+                    True if saved_vars is None or len(saved_vars) == 0 else (name in saved_vars)
+                )
+                var = tk.BooleanVar(value=initial_val)
+                self.var_checks[name] = var
+
+                if name in surface_keys:
+                    parent = self.tabs["surface"]
+                elif name in quota_keys:
+                    parent = self.tabs["quota"]
+                else:
+                    parent = self.tabs["wave"]
+
+                chk = ttk.Checkbutton(parent, text=name, variable=var)
+                chk.pack(anchor="w", pady=1)
+
+        else:
+            saved_key = "selected_vars_icon"
+            saved_vars = self.config.get(saved_key, None)
+
+            for name in ICON_VARS.keys():
+                initial_val = (
+                    True if saved_vars is None or len(saved_vars) == 0 else (name in saved_vars)
+                )
+                var = tk.BooleanVar(value=initial_val)
+                self.var_checks[name] = var
+                chk = ttk.Checkbutton(self.tabs["surface"], text=name, variable=var)
+                chk.pack(anchor="w", pady=1)
+
+    def select_all_in_current_tab(self):
+        """Seleziona tutte le variabili della scheda (Tab) attualmente attiva."""
+        self._toggle_vars_in_current_tab(True)
+
+    def deselect_all_in_current_tab(self):
+        """Deseleziona tutte le variabili della scheda (Tab) attualmente attiva."""
+        self._toggle_vars_in_current_tab(False)
+
+    def _toggle_vars_in_current_tab(self, state: bool):
+        """Modifica lo stato dei checkbutton presenti nella sola Tab visibile."""
+        try:
+            current_tab_id = self.vars_notebook.select()
+            if not current_tab_id:
+                return
+
+            current_tab_frame = self.root.nametowidget(current_tab_id)
+
+            for widget in current_tab_frame.winfo_children():
+                if isinstance(widget, ttk.Checkbutton):
+                    var_name = widget.cget("text")
+                    if var_name in self.var_checks:
+                        self.var_checks[var_name].set(state)
+
+            print(f"[DEBUG] Impostato stato={state} per le variabili della scheda attiva.")
+        except Exception as e:
+            print(f"[DEBUG] Errore nella modifica delle variabili della scheda attiva: {e}")
 
     def _build_map(self):
         self.map_widget = tkintermapview.TkinterMapView(
@@ -465,7 +551,6 @@ class GRIB2DownloaderGUI:
                 (south, west),
             ]
 
-            # Disegna il rettangolo rosso
             self.rect_map = self.map_widget.set_polygon(
                 polygon_path,
                 outline_color="#d62728",
@@ -483,7 +568,6 @@ class GRIB2DownloaderGUI:
         try:
             self.btn_download.config(state=tk.DISABLED)
 
-            # NOTIFICA IMMEDIATA ALL'UTENTE
             self.lbl_status.config(
                 text="Dati in preparazione sul server (verifica run e coordinate)...",
                 foreground="blue"
@@ -500,6 +584,8 @@ class GRIB2DownloaderGUI:
             output_filename = self.ent_out_name.get().strip()
             if not output_filename.endswith(".grb2"):
                 output_filename += ".grb2"
+
+            out_path = os.path.join(target_dir, output_filename)
 
             selected_vars = [
                 name
@@ -525,7 +611,10 @@ class GRIB2DownloaderGUI:
                 print(f"[DOWNLOAD STATUS] {text}")
 
             if "GFS" in selected_model:
-                downloaded_buffers = GfsDownloader.download_gfs(
+                selected_atmos = [v for v in selected_vars if v in GFS_ATMOS_VARS]
+                selected_wave = [v for v in selected_vars if v in GFS_WAVE_VARS]
+
+                downloaded_buffers = GfsDownloader.download_and_merge(
                     north=float(self.ent_north.get()),
                     south=float(self.ent_south.get()),
                     west=float(self.ent_west.get()),
@@ -533,7 +622,9 @@ class GRIB2DownloaderGUI:
                     start_h=int(self.ent_start_h.get()),
                     end_h=int(self.ent_end_h.get()),
                     step_h=int(self.ent_step_h.get()),
-                    selected_vars=selected_vars,
+                    selected_atmos_vars=selected_atmos,
+                    selected_wave_vars=selected_wave,
+                    output_filepath=out_path,
                     progress_callback=update_progress,
                     status_callback=update_status,
                 )
@@ -543,13 +634,12 @@ class GRIB2DownloaderGUI:
                     progress_callback=update_progress,
                     status_callback=update_status,
                 )
+                if downloaded_buffers:
+                    with open(out_path, "wb") as outfile:
+                        for buf in downloaded_buffers:
+                            outfile.write(buf)
 
-            if downloaded_buffers:
-                out_path = os.path.join(target_dir, output_filename)
-                with open(out_path, "wb") as outfile:
-                    for buf in downloaded_buffers:
-                        outfile.write(buf)
-
+            if downloaded_buffers and os.path.exists(out_path):
                 size_mb = os.path.getsize(out_path) / (1024 * 1024)
 
                 self.last_downloaded_file = out_path
@@ -562,8 +652,7 @@ class GRIB2DownloaderGUI:
                 print(f"[DEBUG] Download completato e salvato in {out_path} ({size_mb:.2f} MB)")
                 messagebox.showinfo(
                     "Successo",
-                    f"File salvato con successo:\n{out_path}\n\nDimensione:"
-                    f" {size_mb:.2f} MB",
+                    f"File salvato con successo:\n{out_path}\n\nDimensione: {size_mb:.2f} MB",
                 )
             else:
                 self.lbl_status.config(
@@ -655,7 +744,6 @@ class GRIB2DownloaderGUI:
         """Raccoglie tutti i valori attuali della GUI e li salva tramite ConfigManager."""
         is_gfs = "GFS" in self.cmb_model.get()
 
-        # Aggiorna la lista delle variabili salvate per il modello attivo
         selected_vars = [
             name for name, is_sel in self.var_checks.items() if is_sel.get()
         ]
@@ -683,7 +771,6 @@ class GRIB2DownloaderGUI:
                 text="Impostazioni salvate con successo!", foreground="green"
             )
             print("[DEBUG] Configurazione salvata manualmente dall'utente.")
-
 
     def on_closing(self):
         """Gestisce l'evento di chiusura della finestra Tkinter."""

@@ -1,60 +1,34 @@
+# download_gfs.py
 # ----------------------------------------------------------------------
 # Copyright (C) 2026 Enrico Pozzi - GNU GPLv3
 # ----------------------------------------------------------------------
 
-from datetime import datetime, timedelta, timezone
 import urllib.request
+from datetime import datetime, timedelta, timezone
 
-GFS_VARS = {
-    "Zero Isotherm Height (HGT 0C)": "&var_HGT=on&lev_0C_isotherm=on",
-    "2m Temperature (TMP 2m)": "&var_TMP=on&lev_2_m_above_ground=on",
-    "Pressione MSL": "&var_PRMSL=on&lev_mean_sea_level=on",
-    "850 hPa Temp (TMP 850mb)": "&var_TMP=on&lev_850_mb=on",
-    "500 hPa Height (HGT 500mb)": "&var_HGT=on&lev_500_mb=on",
-    "Total Precip (APCP sfc)": "&var_APCP=on&lev_surface=on",
-    "Relative Humidity 2m (RH 2m)": "&var_RH=on&lev_2_m_above_ground=on",
-    "Total Cloud Cover (TCDC)": "&var_TCDC=on&lev_entire_atmosphere=on",
-    "CAPE (Surface)": "&var_CAPE=on&lev_surface=on",
-    "CIN (Surface)": "&var_CIN=on&lev_surface=on",
-    "10m Wind Vector (UGRD/VGRD)": (
-        "&var_UGRD=on&var_VGRD=on&lev_10_m_above_ground=on"
-    ),
-    "Surface Wind Gust (GUST)": "&var_GUST=on&lev_surface=on",
-}
+# Importazione dei due sottomoduli dedicati
+from .gfs_atmos import GFS_ATMOS_VARS, fetch_gfs_atmos
+from .gfs_wave import GFS_WAVE_VARS, fetch_gfs_wave
 
 
 class GfsDownloader:
 
     @staticmethod
-    def _fetch_url(url):
+    def _check_run_availability(run_dt):
+        # Verifica veloce se il run scelto è pronto su NOAA
+        test_file = f"gfs.t{run_dt.hour:02d}z.pgrb2.0p25.f000"
+        url = f"https://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_0p25.pl?file={test_file}&dir=%2Fgfs.{run_dt.strftime('%Y%m%d')}%2F{run_dt.hour:02d}%2Fatmos"
         try:
             req = urllib.request.Request(
                 url, headers={"User-Agent": "Mozilla/5.0"}
             )
             with urllib.request.urlopen(req, timeout=10) as resp:
-                data = resp.read()
-                return data if len(data) > 500 else None
+                return len(resp.read()) > 500
         except Exception:
-            return None
-
-    @staticmethod
-    def _get_time_params(base_dt, h):
-        target_dt = base_dt + timedelta(hours=h)
-        if h < 0:
-            target_run_hour = (target_dt.hour // 6) * 6
-            run_base = target_dt.replace(
-                hour=target_run_hour, minute=0, second=0, microsecond=0
-            )
-            f_hour = int((target_dt - run_base).total_seconds() // 3600)
-            return (
-                run_base.strftime("%Y%m%d"),
-                f"{run_base.hour:02d}",
-                f"{f_hour:03d}",
-            )
-        return base_dt.strftime("%Y%m%d"), f"{base_dt.hour:02d}", f"{h:03d}"
+            return False
 
     @classmethod
-    def download_gfs(
+    def download_and_merge(
         cls,
         north,
         south,
@@ -63,42 +37,61 @@ class GfsDownloader:
         start_h,
         end_h,
         step_h,
-        selected_vars,
+        selected_atmos_vars,
+        selected_wave_vars,
+        output_filepath=None,
         progress_callback=None,
         status_callback=None,
     ):
         steps = list(range(start_h, end_h + 1, step_h))
+
+        # 1. Determinazione run UTC (00, 06, 12, 18)
         now = datetime.now(timezone.utc)
         run_dt = now.replace(minute=0, second=0, microsecond=0)
         run_dt = run_dt - timedelta(hours=run_dt.hour % 6)
 
-        var_query = "".join([GFS_VARS[v] for v in selected_vars if v in GFS_VARS])
-
-        filename_test = f"gfs.t{run_dt.hour:02d}z.pgrb2.0p25.f000"
-        test_url = f"https://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_0p25.pl?file={filename_test}&dir=%2Fgfs.{run_dt.strftime('%Y%m%d')}%2F{run_dt.hour:02d}%2Fatmos"
-
-        if not cls._fetch_url(test_url):
+        # Fallback a -6h se il run corrente non è ancora presente
+        if not cls._check_run_availability(run_dt):
             run_dt -= timedelta(hours=6)
 
-        downloaded_buffers = []
-        for idx, h in enumerate(steps):
-            c_date, c_run, c_fstep = cls._get_time_params(run_dt, h)
-            filename = f"gfs.t{c_run}z.pgrb2.0p25.f{c_fstep}"
-            url = (
-                f"https://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_0p25.pl?"
-                f"file={filename}{var_query}"
-                f"&subregion=on&leftlon={west}&rightlon={east}&toplat={north}&bottomlat={south}"
-                f"&dir=%2Fgfs.{c_date}%2F{c_run}%2Fatmos"
+        all_buffers = []
+
+        # 2. Scarico componenti Atmosferiche (se selezionate)
+        if selected_atmos_vars:
+            atmos_bufs = fetch_gfs_atmos(
+                run_dt,
+                steps,
+                north,
+                south,
+                west,
+                east,
+                selected_atmos_vars,
+                progress_callback,
+                status_callback,
             )
+            all_buffers.extend(atmos_bufs)
 
+        # 3. Scarico componenti Onde WW3 (se selezionate)
+        if selected_wave_vars:
+            wave_bufs = fetch_gfs_wave(
+                run_dt,
+                steps,
+                north,
+                south,
+                west,
+                east,
+                selected_wave_vars,
+                progress_callback,
+                status_callback,
+            )
+            all_buffers.extend(wave_bufs)
+
+        # 4. Unione / Merge su file fisico (se specificato il percorso)
+        if output_filepath and all_buffers:
             if status_callback:
-                status_callback(f"GFS Download {h}h ({idx+1}/{len(steps)})...")
+                status_callback("Scrittura e merge file GRIB2 in corso...")
+            with open(output_filepath, "wb") as f:
+                for chunk in all_buffers:
+                    f.write(chunk)
 
-            data = cls._fetch_url(url)
-            if data:
-                downloaded_buffers.append(data)
-
-            if progress_callback:
-                progress_callback(idx + 1, len(steps))
-
-        return downloaded_buffers
+        return all_buffers
