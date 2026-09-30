@@ -1,5 +1,5 @@
-# Weather GRIB2 Downloader v3.2.0
-## Automated Subregion Extraction with GFS Wave & Direct XyGrib / GrADS Integration 🌍📊
+# Weather GRIB2 Downloader v3.2.1
+## Automated Subregion Extraction with GFS, WW3 & ICON-EU + Direct XyGrib / GrADS Integration 🌍📊
 
 [![Python](https://img.shields.io/badge/python-3.8%2B-blue.svg)](https://www.python.org/)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
@@ -14,18 +14,17 @@ Weather GRIB2 Downloader v3.2.0 is a powerful Python GUI application designed to
 ## 🌟 Key Features
 
 * **Interactive Map Selector:** Define your geographic bounding box (N/S/W/E) visually using a 2-click interface powered by OpenStreetMap.
-* **GFS Wave Integration:** Full support for oceanographic parameters (Significant Wave Height, Wave Direction, Peak/Mean Periods, Primary/Secondary Swell components) directly alongside atmospheric data.
-* **Tabbed Variable Navigation:** Organized into 3 clean categories: **Surface**, **Upper Air**, and **Waves** with tab-specific selection controls (`All (Tab)` / `None (Tab)`).
-* **Strict Variable & Level Mapping:** Direct coupling of meteorological variables to specific vertical levels to prevent HTTP 404 server errors on NOAA NOMADS.
-* **Multi-Model Support:**
-  * **GFS & GFS Wave (NOAA)**: Custom subsetting by bounding box, time step ranges, and target variables.
-  * **ICON-EU (DWD)**: Automated download and `.bz2` decompression of single-level parameters directly from DWD OpenData.
-* **Flexible Time Horizon:** Seamlessly merges past analysis runs and future forecast steps into a single unified GRIB2 file.
-* **Automated GrADS Integration:** Dynamic generation of `startup.gs` control scripts with automatic `g2ctl` and `gribmap` indexing.
+* **Modular Multi-Model Support:**
+  * **GFS (NOAA NOMADS)**: Multi-step atmospheric data (Surface & Isobaric pressure levels).
+  * **WW3 (NOAA WaveWatch III)**: Dedicated oceanographic and marine wave model (Significant height, wind waves, and full swell partition).
+  * **ICON-EU (DWD)**: Automated download and `.bz2` decompression of high-resolution European model data.
+* **Dynamic GUI Tab Navigation:** Interface automatically adapts its notebook layout based on the active model (2 tabs for GFS, 1 tab for WW3, 1 tab for ICON-EU).
+* **Tab-Scoped Selection Controls:** Quick selection controls (`Tutte (scheda)` / `Nessuna (scheda)`) act strictly within the currently open tab.
+* **Unified GRIB2 Output:** Concatenates all hourly forecast steps into a single persistent `.grb2` file ready for instant visualization.
+* **Automated GrADS Integration:** Dynamic generation of descriptor (`.ctl`) files using `g2ctl -0` for clean surface coordinate mapping ($Z=1$).
 * **Cross-Platform XyGrib Integration:** One-click launch across Linux, macOS, and Windows.
 * **Persistent Settings Management:** Automatically saves and restores user preferences, bounding boxes, and variable selections across restarts via JSON.
 * **Multi-threaded Architecture:** Keeps the graphical interface smooth and responsive during active downloads.
-
 ---
 
 ## 📸 Application Screenshots
@@ -51,13 +50,13 @@ Weather GRIB2 Downloader v3.2.0 is a powerful Python GUI application designed to
 
 ---
 
-## 🚀 What's New in Version 3.2.0
+## 🚀 What's New in Version 3.2.1
 
-* **GFS Wave Model Integration:** Full native support for GFS Wave dataset downloads, allowing seamless inclusion of marine and oceanographic parameters (SHTS, DIRPW, PERPW, etc.).
-* **Redesigned Tabbed Variable Interface:** Replaced long single-column checkboxes with a clean 3-tab Notebook view (**Surface**, **Upper Air**, **Waves**).
-* **Tab-Scoped Selection Controls:** Introduced **`All (Tab)`** and **`None (Tab)`** action buttons that toggle variables *only* in the currently active tab.
-* **Optimized Workflow Layout:** Moved the **"💾 Save Configuration"** button directly below the variable tab selection area for an intuitive top-to-bottom setup flow.
-* **Enhanced Persistence:** Updated `ConfigManager` to save and restore active selections independently across all 3 tabs for both GFS and ICON-EU models.
+* **Multi-Model Engine Architecture:** Refactored backend into three independent downloader modules (`download_gfs.py`, `download_WW3.py`, `download_icon.py`).
+* **Context-Aware Dynamic Tabs:** The variable notebook dynamically updates visible tabs based on the selected model.
+* **WW3 Swell Partition Fix:** Corrected NOAA NOMADS HTTP filters by assigning `lev_1_in_sequence=on` to Swell variables (`SWELL`, `SWDIR`, `SWPER`), enabling complete 9-variable wave dataset downloads.
+* **GrADS `-0` Flag Compatibility:** Added the `-0` option to `g2ctl` execution in `grads_handler.py` to properly map surface/wave variables on a clean $Z=1$ coordinate level (`lev 0`).
+* **Codebase Cleanup:** Removed deprecated modules (`gfs_atmos.py` and `gfs_wave.py`) and updated `.gitignore`.
 
 ---
 
