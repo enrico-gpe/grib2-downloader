@@ -53,7 +53,7 @@ class GradsHandler:
             f"[DEBUG GrADS] Generazione CTL con g2ctl per {filename_grib2}..."
         )
         # 1. Genera il file .ctl con g2ctl
-        cmd_g2ctl = f"g2ctl {filename_grib2} > {filename_ctl}"
+        cmd_g2ctl = f"g2ctl -0 {filename_grib2} > {filename_ctl}"
         subprocess.run(
             cmd_g2ctl,
             shell=True,

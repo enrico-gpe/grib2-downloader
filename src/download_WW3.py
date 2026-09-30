@@ -1,4 +1,4 @@
-# download_gfs.py
+# download_WW3.py
 # ----------------------------------------------------------------------
 # Copyright (C) 2026 Enrico Pozzi - GNU GPLv3
 # ----------------------------------------------------------------------
@@ -6,42 +6,25 @@
 from datetime import datetime, timedelta, timezone
 import urllib.request
 
-GFS_VARS = {
-    # --- Geopotenziale ---
-    "Zero Isotherm Height (HGT 0C)": "&var_HGT=on&lev_0C_isotherm=on",
-    "500 hPa Height (HGT 500mb)": "&var_HGT=on&lev_500_mb=on",
-    "850 hPa Height (HGT 850mb)": "&var_HGT=on&lev_850_mb=on",
+WW3_VARS = {
+    # 1. Combined Wave (Mare Totale) - Livello: Surface
+    "Significant Height of Combined Waves (HTSGW)": "&var_HTSGW=on&lev_surface=on",
+    "Primary Wave Direction (DIRPW)": "&var_DIRPW=on&lev_surface=on",
+    "Primary Wave Mean Period (PERPW)": "&var_PERPW=on&lev_surface=on",
 
-    # --- Temperature ---
-    "Surface Temp (TMP sfc)": "&var_TMP=on&lev_surface=on",
-    "2m Temperature (TMP 2m)": "&var_TMP=on&lev_2_m_above_ground=on",
-    "850 hPa Temp (TMP 850mb)": "&var_TMP=on&lev_850_mb=on",
-    "500 hPa Temp (TMP 500mb)": "&var_TMP=on&lev_500_mb=on",
+    # 2. Primary Swell (Mare Lungo) - Livello: 1 in sequence
+    "Primary Swell Wave Height (SWELL)": "&var_SWELL=on&lev_1_in_sequence=on",
+    "Primary Swell Wave Direction (SWDIR)": "&var_SWDIR=on&lev_1_in_sequence=on",
+    "Primary Swell Wave Period (SWPER)": "&var_SWPER=on&lev_1_in_sequence=on",
 
-    # --- Pressione e Precipitazioni ---
-    "Pressione MSL": "&var_PRMSL=on&lev_mean_sea_level=on",
-    "Total Precip (APCP sfc)": "&var_APCP=on&lev_surface=on",
-
-    # --- Umidità Relativa ---
-    "Relative Humidity 2m (RH 2m)": "&var_RH=on&lev_2_m_above_ground=on",
-    "Relative Humidity 850hPa (RH 850mb)": "&var_RH=on&lev_850_mb=on",
-    "Relative Humidity 500hPa (RH 500mb)": "&var_RH=on&lev_500_mb=on",
-    "Relative Humidity 0C (RH 0C)": "&var_RH=on&lev_0C_isotherm=on",
-
-    # --- Nuvolosità e Instabilità ---
-    "Total Cloud Cover (TCDC)": "&var_TCDC=on&lev_entire_atmosphere=on",
-    "CAPE (Surface)": "&var_CAPE=on&lev_surface=on",
-    "CIN (Surface)": "&var_CIN=on&lev_surface=on",
-
-    # --- Vento e Raffiche ---
-    "10m Wind Vector (UGRD/VGRD)": "&var_UGRD=on&var_VGRD=on&lev_10_m_above_ground=on",
-    "850hPa Wind Vector (UGRD/VGRD)": "&var_UGRD=on&var_VGRD=on&lev_850_mb=on",
-    "500hPa Wind Vector (UGRD/VGRD)": "&var_UGRD=on&var_VGRD=on&lev_500_mb=on",
-    "Surface Wind Gust (GUST)": "&var_GUST=on&lev_surface=on",
+    # 3. Wind Wave (Mare Vivo / Vento) - Livello: Surface
+    "Wind Wave Height (WVHGT)": "&var_WVHGT=on&lev_surface=on",
+    "Wind Wave Direction (WVDIR)": "&var_WVDIR=on&lev_surface=on",
+    "Wind Wave Period (WVPER)": "&var_WVPER=on&lev_surface=on",
 }
 
 
-class GfsDownloader:
+class Ww3Downloader:
 
     @staticmethod
     def _fetch_url(url):
@@ -72,7 +55,7 @@ class GfsDownloader:
         return base_dt.strftime("%Y%m%d"), f"{base_dt.hour:02d}", f"{h:03d}"
 
     @classmethod
-    def download_gfs(
+    def download_ww3(
         cls,
         north,
         south,
@@ -90,12 +73,15 @@ class GfsDownloader:
         run_dt = now.replace(minute=0, second=0, microsecond=0)
         run_dt = run_dt - timedelta(hours=run_dt.hour % 6)
 
-        var_query = "".join([GFS_VARS[v] for v in selected_vars if v in GFS_VARS])
+        var_query = "".join([WW3_VARS[v] for v in selected_vars if v in WW3_VARS])
         if not var_query:
             return []
 
-        filename_test = f"gfs.t{run_dt.hour:02d}z.pgrb2.0p25.f000"
-        test_url = f"https://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_0p25.pl?file={filename_test}&dir=%2Fgfs.{run_dt.strftime('%Y%m%d')}%2F{run_dt.hour:02d}%2Fatmos"
+        filename_test = f"gfswave.t{run_dt.hour:02d}z.global.0p25.f000.grib2"
+        test_url = (
+            f"https://nomads.ncep.noaa.gov/cgi-bin/filter_gfswave.pl?"
+            f"file={filename_test}&dir=%2Fgfs.{run_dt.strftime('%Y%m%d')}%2F{run_dt.hour:02d}%2Fwave%2Fgridded"
+        )
 
         if not cls._fetch_url(test_url):
             run_dt -= timedelta(hours=6)
@@ -103,16 +89,16 @@ class GfsDownloader:
         downloaded_buffers = []
         for idx, h in enumerate(steps):
             c_date, c_run, c_fstep = cls._get_time_params(run_dt, h)
-            filename = f"gfs.t{c_run}z.pgrb2.0p25.f{c_fstep}"
+            filename = f"gfswave.t{c_run}z.global.0p25.f{c_fstep}.grib2"
             url = (
-                f"https://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_0p25.pl?"
+                f"https://nomads.ncep.noaa.gov/cgi-bin/filter_gfswave.pl?"
                 f"file={filename}{var_query}"
                 f"&subregion=on&leftlon={west}&rightlon={east}&toplat={north}&bottomlat={south}"
-                f"&dir=%2Fgfs.{c_date}%2F{c_run}%2Fatmos"
+                f"&dir=%2Fgfs.{c_date}%2F{c_run}%2Fwave%2Fgridded"
             )
 
             if status_callback:
-                status_callback(f"GFS Atmos {h}h ({idx+1}/{len(steps)})...")
+                status_callback(f"WW3 Wave {h}h ({idx+1}/{len(steps)})...")
 
             data = cls._fetch_url(url)
             if data:

@@ -4,3 +4,9 @@ __pycache__/
 venv/
 .venv/
 settings.json
+
+# Moduli in fase di sviluppo isolato
+mappa_utils.py
+src/mappa_utils.py
+forecast_player.py
+src/forecast_player.py

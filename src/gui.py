@@ -1,3 +1,4 @@
+# gui_2.py
 # ----------------------------------------------------------------------
 # Copyright (C) 2026 Enrico Pozzi - GNU GPLv3
 # ----------------------------------------------------------------------
@@ -10,19 +11,19 @@ from tkinter import filedialog, messagebox, ttk
 
 import tkintermapview
 
-from .download_gfs import GfsDownloader
-from .gfs_atmos import GFS_ATMOS_VARS
-from .gfs_wave import GFS_WAVE_VARS
+from .download_gfs import GFS_VARS, GfsDownloader
+from .download_WW3 import WW3_VARS, Ww3Downloader
 from .download_icon import ICON_VARS, IconEuDownloader
 from .grads_handler import GradsHandler
 from .xygrib_handler import XyGribHandler
 from .config_manager import ConfigManager
 
+
 class GRIB2DownloaderGUI:
 
     def __init__(self, root):
         self.root = root
-        self.root.title("Weather GRIB2 Downloader v3.2.0 (GFS / ICON-EU)")
+        self.root.title("Weather GRIB2 Downloader v3.2.1 (GFS / WW3 / ICON-EU)")
         self.root.geometry("1280x850")
 
         # 1. Carica le impostazioni dal file JSON
@@ -69,7 +70,7 @@ class GRIB2DownloaderGUI:
         self.left_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         self.left_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
-        # Supporto per lo scroll tramite rotellina del mouse sulla colonna sinistra
+        # Supporto per lo scroll tramite rotellina del mouse
         def _on_mousewheel(event):
             self.left_canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
 
@@ -92,13 +93,13 @@ class GRIB2DownloaderGUI:
         self._build_controls()
         self._build_map()
 
-        # Popola subito le variabili all'avvio
+        # Popola subito le variabili all'avvio in base al modello salvato
         self.update_variable_checkboxes()
 
-        # Salva automaticamente la configurazione alla chiusura dell'app
+        # Salva automaticamente la configurazione alla chiusura
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
 
-        # Controlla se esiste già un file GRIB2 nella cartella corrente per abilitare i tasti
+        # Controlla se esiste già un file GRIB2 per abilitare i tasti
         try:
             ultimo = GradsHandler.ottieni_ultimo_grib2(self.ent_dir_path.get())
             self.last_downloaded_file = ultimo
@@ -108,21 +109,29 @@ class GRIB2DownloaderGUI:
         except Exception:
             pass
 
-        print("[DEBUG] Interfaccia v3.0 inizializzata correttamente.")
+        print("[DEBUG] Interfaccia v3.2.0 inizializzata correttamente.")
 
     def _build_controls(self):
-        # 1. Modello
+        # 1. Modello Meteorologico (3 Modelli distinti)
         lbl_model = ttk.LabelFrame(
             self.left_frame, text=" Modello Meteorologico ", padding=8
         )
         lbl_model.pack(fill=tk.X, pady=4)
+
         self.cmb_model = ttk.Combobox(
             lbl_model,
-            values=["GFS (NOAA NOMADS)", "ICON-EU (DWD OpenData)"],
+            values=[
+                "GFS (NOAA NOMADS)",
+                "WW3 (NOAA WaveWatch III)",
+                "ICON-EU (DWD OpenData)"
+            ],
             state="readonly",
         )
 
         saved_model = self.config.get("model", "GFS (NOAA NOMADS)")
+        if saved_model not in self.cmb_model["values"]:
+            saved_model = "GFS (NOAA NOMADS)"
+
         self.cmb_model.set(saved_model)
         self.cmb_model.pack(fill=tk.X, pady=2)
         self.cmb_model.bind("<<ComboboxSelected>>", self.on_model_change)
@@ -171,7 +180,7 @@ class GRIB2DownloaderGUI:
             row=5, column=0, columnspan=2, pady=2, sticky="ew"
         )
 
-        # 3. Variabili (Notebook Standard)
+        # 3. Variabili (Notebook Dinamico)
         self.lbl_vars = ttk.LabelFrame(
             self.left_frame, text=" Variabili Selezionate ", padding=6
         )
@@ -183,7 +192,6 @@ class GRIB2DownloaderGUI:
         ttk.Button(
             btn_frame,
             text="Tutte (scheda)",
-        # 3. Variabili (Notebook Standard)
             command=self.select_all_in_current_tab,
         ).pack(side=tk.LEFT, padx=2)
 
@@ -193,21 +201,11 @@ class GRIB2DownloaderGUI:
             command=self.deselect_all_in_current_tab,
         ).pack(side=tk.LEFT, padx=2)
 
-        # Notebook per le 3 Tab
+        # Notebook contenitore delle Tab
         self.vars_notebook = ttk.Notebook(self.lbl_vars)
         self.vars_notebook.pack(fill=tk.X, pady=4)
 
-        self.tabs = {}
-        for tab_name, tab_title in [
-            ("surface", "🌐 Superficie"),
-            ("quota", "☁️ Quota"),
-            ("wave", "🌊 Onde"),
-        ]:
-            tab_frame = ttk.Frame(self.vars_notebook, padding=5)
-            self.vars_notebook.add(tab_frame, text=f" {tab_title} ")
-            self.tabs[tab_name] = tab_frame
-
-        # nuova posizione salvataggio config
+        # Salva Configurazione
         self.btn_save_config = ttk.Button(
             self.left_frame,
             text="💾 Salva Configurazione",
@@ -258,14 +256,11 @@ class GRIB2DownloaderGUI:
         self.ent_out_name.insert(0, self.config.get("output_file", "custom_weather.grb2"))
         self.ent_out_name.pack(fill=tk.X, pady=2)
 
-
         # 6. Esecuzione & Visualizzazione
         lbl_action = ttk.LabelFrame(
             self.left_frame, text=" Esecuzione & Visualizzazione ", padding=8
         )
         lbl_action.pack(fill=tk.X, pady=4)
-
-
 
         self.btn_download = ttk.Button(
             lbl_action,
@@ -373,17 +368,26 @@ class GRIB2DownloaderGUI:
         self.update_variable_checkboxes()
 
     def update_variable_checkboxes(self):
-        # Svuota le tab
-        for parent_frame in self.tabs.values():
-            for child in parent_frame.winfo_children():
-                child.destroy()
+        """Ricostruisce dinamicamente le tab e le checkbox in base al modello selezionato."""
+        # 1. Rimuovi tutte le tab esistenti nel Notebook
+        for tab_id in self.vars_notebook.tabs():
+            self.vars_notebook.forget(tab_id)
 
         self.var_checks.clear()
-        is_gfs = "GFS" in self.cmb_model.get()
+        self.tabs = {}
 
-        if is_gfs:
+        model_name = self.cmb_model.get()
+
+        # CASO 1: GFS (NOAA NOMADS) -> 2 TAB (Superficie, Quota)
+        if "GFS" in model_name:
             saved_key = "selected_vars_gfs"
             saved_vars = self.config.get(saved_key, None)
+
+            # Crea le due tab
+            for tab_key, tab_title in [("surface", "🌐 Superficie"), ("quota", "☁️ Quota")]:
+                tab_frame = ttk.Frame(self.vars_notebook, padding=5)
+                self.vars_notebook.add(tab_frame, text=f" {tab_title} ")
+                self.tabs[tab_key] = tab_frame
 
             surface_keys = [
                 "Surface Temp (TMP sfc)", "2m Temperature (TMP 2m)",
@@ -391,37 +395,44 @@ class GRIB2DownloaderGUI:
                 "Total Precip (APCP sfc)", "CAPE (Surface)", "CIN (Surface)",
                 "10m Wind Vector (UGRD/VGRD)", "Surface Wind Gust (GUST)"
             ]
-            quota_keys = [
-                "Zero Isotherm Height (HGT 0C)", "Relative Humidity 0C (RH 0C)",
-                "500 hPa Height (HGT 500mb)", "500 hPa Temp (TMP 500mb)",
-                "Relative Humidity 500hPa (RH 500mb)", "500hPa Wind Vector (UGRD/VGRD)",
-                "850 hPa Height (HGT 850mb)", "850 hPa Temp (TMP 850mb)",
-                "Relative Humidity 850hPa (RH 850mb)", "850hPa Wind Vector (UGRD/VGRD)",
-                "Total Cloud Cover (TCDC)"
-            ]
 
-            target_dict = {**GFS_ATMOS_VARS, **GFS_WAVE_VARS}
-
-            for name in target_dict.keys():
+            for name in GFS_VARS.keys():
                 initial_val = (
                     True if saved_vars is None or len(saved_vars) == 0 else (name in saved_vars)
                 )
                 var = tk.BooleanVar(value=initial_val)
                 self.var_checks[name] = var
 
-                if name in surface_keys:
-                    parent = self.tabs["surface"]
-                elif name in quota_keys:
-                    parent = self.tabs["quota"]
-                else:
-                    parent = self.tabs["wave"]
-
+                parent = self.tabs["surface"] if name in surface_keys else self.tabs["quota"]
                 chk = ttk.Checkbutton(parent, text=name, variable=var)
                 chk.pack(anchor="w", pady=1)
 
+        # CASO 2: WW3 (NOAA WaveWatch III) -> 1 TAB (Onde)
+        elif "WW3" in model_name:
+            saved_key = "selected_vars_ww3"
+            saved_vars = self.config.get(saved_key, None)
+
+            tab_frame = ttk.Frame(self.vars_notebook, padding=5)
+            self.vars_notebook.add(tab_frame, text=" 🌊 Onde ")
+            self.tabs["wave"] = tab_frame
+
+            for name in WW3_VARS.keys():
+                initial_val = (
+                    True if saved_vars is None or len(saved_vars) == 0 else (name in saved_vars)
+                )
+                var = tk.BooleanVar(value=initial_val)
+                self.var_checks[name] = var
+                chk = ttk.Checkbutton(self.tabs["wave"], text=name, variable=var)
+                chk.pack(anchor="w", pady=1)
+
+        # CASO 3: ICON-EU (DWD OpenData) -> 1 TAB (Superficie)
         else:
             saved_key = "selected_vars_icon"
             saved_vars = self.config.get(saved_key, None)
+
+            tab_frame = ttk.Frame(self.vars_notebook, padding=5)
+            self.vars_notebook.add(tab_frame, text=" 🌐 Superficie ")
+            self.tabs["surface"] = tab_frame
 
             for name in ICON_VARS.keys():
                 initial_val = (
@@ -610,34 +621,54 @@ class GRIB2DownloaderGUI:
                 self.lbl_status.config(text=text, foreground="black")
                 print(f"[DOWNLOAD STATUS] {text}")
 
-            if "GFS" in selected_model:
-                selected_atmos = [v for v in selected_vars if v in GFS_ATMOS_VARS]
-                selected_wave = [v for v in selected_vars if v in GFS_WAVE_VARS]
+            downloaded_buffers = []
+            north = float(self.ent_north.get())
+            south = float(self.ent_south.get())
+            west = float(self.ent_west.get())
+            east = float(self.ent_east.get())
+            start_h = int(self.ent_start_h.get())
+            end_h = int(self.ent_end_h.get())
+            step_h = int(self.ent_step_h.get())
 
-                downloaded_buffers = GfsDownloader.download_and_merge(
-                    north=float(self.ent_north.get()),
-                    south=float(self.ent_south.get()),
-                    west=float(self.ent_west.get()),
-                    east=float(self.ent_east.get()),
-                    start_h=int(self.ent_start_h.get()),
-                    end_h=int(self.ent_end_h.get()),
-                    step_h=int(self.ent_step_h.get()),
-                    selected_atmos_vars=selected_atmos,
-                    selected_wave_vars=selected_wave,
-                    output_filepath=out_path,
+            # ESECUZIONE DOWNLOAD PER MODELLO
+            if "GFS" in selected_model:
+                downloaded_buffers = GfsDownloader.download_gfs(
+                    north=north,
+                    south=south,
+                    west=west,
+                    east=east,
+                    start_h=start_h,
+                    end_h=end_h,
+                    step_h=step_h,
+                    selected_vars=selected_vars,
                     progress_callback=update_progress,
                     status_callback=update_status,
                 )
-            else:
+            elif "WW3" in selected_model:
+                downloaded_buffers = Ww3Downloader.download_ww3(
+                    north=north,
+                    south=south,
+                    west=west,
+                    east=east,
+                    start_h=start_h,
+                    end_h=end_h,
+                    step_h=step_h,
+                    selected_vars=selected_vars,
+                    progress_callback=update_progress,
+                    status_callback=update_status,
+                )
+            else:  # ICON-EU
                 downloaded_buffers = IconEuDownloader.download_icon_eu(
                     selected_vars=selected_vars,
                     progress_callback=update_progress,
                     status_callback=update_status,
                 )
-                if downloaded_buffers:
-                    with open(out_path, "wb") as outfile:
-                        for buf in downloaded_buffers:
-                            outfile.write(buf)
+
+            # Salva i buffer scaricati in un unico file GRIB2
+            if downloaded_buffers:
+                with open(out_path, "wb") as outfile:
+                    for buf in downloaded_buffers:
+                        outfile.write(buf)
 
             if downloaded_buffers and os.path.exists(out_path):
                 size_mb = os.path.getsize(out_path) / (1024 * 1024)
@@ -741,19 +772,20 @@ class GRIB2DownloaderGUI:
             self.lbl_status.config(text="Errore XyGrib.", foreground="red")
 
     def save_current_settings(self, show_feedback=False):
-        """Raccoglie tutti i valori attuali della GUI e li salva tramite ConfigManager."""
-        is_gfs = "GFS" in self.cmb_model.get()
-
+        """Salva la configurazione corrente nel JSON mantenendo salvataggi distinti per ogni modello."""
+        model_name = self.cmb_model.get()
         selected_vars = [
             name for name, is_sel in self.var_checks.items() if is_sel.get()
         ]
 
-        if is_gfs:
+        if "GFS" in model_name:
             self.config["selected_vars_gfs"] = selected_vars
+        elif "WW3" in model_name:
+            self.config["selected_vars_ww3"] = selected_vars
         else:
             self.config["selected_vars_icon"] = selected_vars
 
-        self.config["model"] = self.cmb_model.get()
+        self.config["model"] = model_name
         self.config["north"] = self.ent_north.get().strip()
         self.config["south"] = self.ent_south.get().strip()
         self.config["west"] = self.ent_west.get().strip()
