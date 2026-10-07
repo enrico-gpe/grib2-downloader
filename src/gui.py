@@ -109,7 +109,7 @@ class GRIB2DownloaderGUI:
         except Exception:
             pass
 
-        print("[DEBUG] Interfaccia v3.2.0 inizializzata correttamente.")
+        print("[DEBUG] Interfaccia v3.2.1 inizializzata correttamente.")
 
     def _build_controls(self):
         # 1. Modello Meteorologico (3 Modelli distinti)
@@ -369,7 +369,6 @@ class GRIB2DownloaderGUI:
 
     def update_variable_checkboxes(self):
         """Ricostruisce dinamicamente le tab e le checkbox in base al modello selezionato."""
-        # 1. Rimuovi tutte le tab esistenti nel Notebook
         for tab_id in self.vars_notebook.tabs():
             self.vars_notebook.forget(tab_id)
 
@@ -378,12 +377,10 @@ class GRIB2DownloaderGUI:
 
         model_name = self.cmb_model.get()
 
-        # CASO 1: GFS (NOAA NOMADS) -> 2 TAB (Superficie, Quota)
         if "GFS" in model_name:
             saved_key = "selected_vars_gfs"
             saved_vars = self.config.get(saved_key, None)
 
-            # Crea le due tab
             for tab_key, tab_title in [("surface", "🌐 Superficie"), ("quota", "☁️ Quota")]:
                 tab_frame = ttk.Frame(self.vars_notebook, padding=5)
                 self.vars_notebook.add(tab_frame, text=f" {tab_title} ")
@@ -407,7 +404,6 @@ class GRIB2DownloaderGUI:
                 chk = ttk.Checkbutton(parent, text=name, variable=var)
                 chk.pack(anchor="w", pady=1)
 
-        # CASO 2: WW3 (NOAA WaveWatch III) -> 1 TAB (Onde)
         elif "WW3" in model_name:
             saved_key = "selected_vars_ww3"
             saved_vars = self.config.get(saved_key, None)
@@ -425,8 +421,7 @@ class GRIB2DownloaderGUI:
                 chk = ttk.Checkbutton(self.tabs["wave"], text=name, variable=var)
                 chk.pack(anchor="w", pady=1)
 
-        # CASO 3: ICON-EU (DWD OpenData) -> 1 TAB (Superficie)
-        else:
+        else:  # ICON-EU
             saved_key = "selected_vars_icon"
             saved_vars = self.config.get(saved_key, None)
 
@@ -444,15 +439,12 @@ class GRIB2DownloaderGUI:
                 chk.pack(anchor="w", pady=1)
 
     def select_all_in_current_tab(self):
-        """Seleziona tutte le variabili della scheda (Tab) attualmente attiva."""
         self._toggle_vars_in_current_tab(True)
 
     def deselect_all_in_current_tab(self):
-        """Deseleziona tutte le variabili della scheda (Tab) attualmente attiva."""
         self._toggle_vars_in_current_tab(False)
 
     def _toggle_vars_in_current_tab(self, state: bool):
-        """Modifica lo stato dei checkbutton presenti nella sola Tab visibile."""
         try:
             current_tab_id = self.vars_notebook.select()
             if not current_tab_id:
@@ -577,13 +569,11 @@ class GRIB2DownloaderGUI:
 
     def run_download(self):
         try:
-            self.btn_download.config(state=tk.DISABLED)
-
-            self.lbl_status.config(
+            self.root.after(0, lambda: self.btn_download.config(state=tk.DISABLED))
+            self.root.after(0, lambda: self.lbl_status.config(
                 text="Dati in preparazione sul server (verifica run e coordinate)...",
                 foreground="blue"
-            )
-            self.root.update_idletasks()
+            ))
             print("[DOWNLOAD STATUS] Dati in preparazione sul server...")
 
             selected_model = self.cmb_model.get()
@@ -605,20 +595,19 @@ class GRIB2DownloaderGUI:
             ]
 
             if not selected_vars:
-                messagebox.showwarning(
+                self.root.after(0, lambda: messagebox.showwarning(
                     "Attenzione", "Seleziona almeno una variabile!"
-                )
-                self.lbl_status.config(
+                ))
+                self.root.after(0, lambda: self.lbl_status.config(
                     text="Nessuna variabile selezionata.", foreground="red"
-                )
+                ))
                 return
 
             def update_progress(val, max_val):
-                self.progress["maximum"] = max_val
-                self.progress["value"] = val
+                self.root.after(0, lambda: self.progress.configure(maximum=max_val, value=val))
 
             def update_status(text):
-                self.lbl_status.config(text=text, foreground="black")
+                self.root.after(0, lambda: self.lbl_status.config(text=text, foreground="black"))
                 print(f"[DOWNLOAD STATUS] {text}")
 
             downloaded_buffers = []
@@ -674,32 +663,33 @@ class GRIB2DownloaderGUI:
                 size_mb = os.path.getsize(out_path) / (1024 * 1024)
 
                 self.last_downloaded_file = out_path
-                self.btn_grads.config(state=tk.NORMAL)
-                self.btn_xygrib.config(state=tk.NORMAL)
+                self.root.after(0, lambda: self.btn_grads.config(state=tk.NORMAL))
+                self.root.after(0, lambda: self.btn_xygrib.config(state=tk.NORMAL))
 
-                self.lbl_status.config(
+                self.root.after(0, lambda: self.lbl_status.config(
                     text=f"Completato! ({size_mb:.2f} MB)", foreground="green"
-                )
+                ))
                 print(f"[DEBUG] Download completato e salvato in {out_path} ({size_mb:.2f} MB)")
-                messagebox.showinfo(
+                self.root.after(0, lambda: messagebox.showinfo(
                     "Successo",
                     f"File salvato con successo:\n{out_path}\n\nDimensione: {size_mb:.2f} MB",
-                )
+                ))
             else:
-                self.lbl_status.config(
+                self.root.after(0, lambda: self.lbl_status.config(
                     text="Download fallito.", foreground="red"
-                )
-                messagebox.showerror(
+                ))
+                self.root.after(0, lambda: messagebox.showerror(
                     "Errore", "Impossibile scaricare i dati GRIB2."
-                )
+                ))
         except Exception as ex:
             print(f"[DEBUG] Errore durante il download: {ex}")
-            messagebox.showerror("Errore", str(ex))
-            self.lbl_status.config(
+            err_msg = str(ex)
+            self.root.after(0, lambda: messagebox.showerror("Errore", err_msg))
+            self.root.after(0, lambda: self.lbl_status.config(
                 text="Errore durante il download.", foreground="red"
-            )
+            ))
         finally:
-            self.btn_download.config(state=tk.NORMAL)
+            self.root.after(0, lambda: self.btn_download.config(state=tk.NORMAL))
 
     def apri_in_grads(self):
         if not self.last_downloaded_file or not os.path.exists(
@@ -772,7 +762,6 @@ class GRIB2DownloaderGUI:
             self.lbl_status.config(text="Errore XyGrib.", foreground="red")
 
     def save_current_settings(self, show_feedback=False):
-        """Salva la configurazione corrente nel JSON mantenendo salvataggi distinti per ogni modello."""
         model_name = self.cmb_model.get()
         selected_vars = [
             name for name, is_sel in self.var_checks.items() if is_sel.get()
@@ -805,6 +794,5 @@ class GRIB2DownloaderGUI:
             print("[DEBUG] Configurazione salvata manualmente dall'utente.")
 
     def on_closing(self):
-        """Gestisce l'evento di chiusura della finestra Tkinter."""
         self.save_current_settings(show_feedback=False)
         self.root.destroy()

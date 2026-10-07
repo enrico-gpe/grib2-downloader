@@ -1,94 +1,77 @@
+# src/grads_handler.py
 # ----------------------------------------------------------------------
 # Copyright (C) 2026 Enrico Pozzi - GNU GPLv3
 # ----------------------------------------------------------------------
 
+import glob
 import os
 import subprocess
-import glob
+
 
 class GradsHandler:
 
     @staticmethod
-    def ottieni_ultimo_grib2(download_dir: str) -> str:
-        """Trova il file .grib2 o .grb2 modificato più di recente nella directory specificata."""
-        if not os.path.exists(download_dir):
+    def ottieni_ultimo_grib2(cartella: str) -> str:
+        """Cerca il file GRIB2 più recente all'interno della cartella specificata."""
+        files = glob.glob(os.path.join(cartella, "*.grb2"))
+        if not files:
             raise FileNotFoundError(
-                f"La cartella {download_dir} non esiste."
+                f"Nessun file .grb2 trovato nella cartella {cartella}"
             )
-
-        # Cerca file con estensione .grib2 o .grb2
-        pattern_grib2 = os.path.join(download_dir, "*.grib2")
-        pattern_grb2 = os.path.join(download_dir, "*.grb2")
-        file_list = glob.glob(pattern_grib2) + glob.glob(pattern_grb2)
-
-        if not file_list:
-            raise FileNotFoundError(
-                f"Nessun file GRIB2 (.grib2 / .grb2) trovato in {download_dir}."
-            )
-
-        # Ordina per data di ultima modifica (il più recente per ultimo)
-        ultimo_file = max(file_list, key=os.path.getmtime)
-        return ultimo_file
+        files.sort(key=os.path.getmtime, reverse=True)
+        return files[0]
 
     @staticmethod
-    def visualizza_ultimo(download_dir: str):
-        """Trova ed apre direttamente l'ultimo file scaricato in GrADS."""
-        ultimo_file = GradsHandler.ottieni_ultimo_grib2(download_dir)
-        print(f"[DEBUG GrADS] Apertura ultimo file trovato: {ultimo_file}")
-        GradsHandler.visualizza_in_grads(ultimo_file)
-    @staticmethod
-    def visualizza_in_grads(filepath_grib2: str):
-        """Prepara il file GRIB2 tramite g2ctl e gribmap, poi lo apre ed esegue l'ambiente in GrADS."""
-        if not filepath_grib2 or not os.path.exists(filepath_grib2):
-            raise FileNotFoundError(
-                "Nessun file GRIB2 valido trovato da visualizzare."
+    def visualizza_in_grads(grib_path: str):
+        """Genera il CTL con g2ctl e l'indice con gribmap (con flag 0), poi avvia GrADS."""
+        if not os.path.exists(grib_path):
+            raise FileNotFoundError(f"File GRIB2 non trovato: {grib_path}")
+
+        working_dir = os.path.dirname(os.path.abspath(grib_path))
+        base_path = os.path.splitext(grib_path)[0]
+        ctl_path = f"{base_path}.ctl"
+        idx_path = f"{base_path}.idx"
+
+        # 1. Rimuovi vecchi file di controllo per evitare sovrapposizioni
+        for f in [ctl_path, idx_path]:
+            if os.path.exists(f):
+                try:
+                    os.remove(f)
+                except OSError:
+                    pass
+
+        # 2. Genera il file .ctl (esattamente: g2ctl custom_weather.grb2 > custom_weather.ctl)
+        print(f"[GRADS HANDLER] Generazione CTL per: {grib_path}")
+        cmd_g2ctl = f"g2ctl {grib_path} > {ctl_path}"
+        res_g2ctl = subprocess.run(
+            cmd_g2ctl, shell=True, capture_output=True, text=True, cwd=working_dir
+        )
+
+        if res_g2ctl.returncode != 0:
+            raise RuntimeError(
+                f"Errore durante l'esecuzione di g2ctl:\n{res_g2ctl.stderr}"
             )
 
-        work_dir = os.path.dirname(filepath_grib2)
-        filename_grib2 = os.path.basename(filepath_grib2)
-        filename_base, _ = os.path.splitext(filename_grib2)
-        filename_ctl = f"{filename_base}.ctl"
-
-        print(
-            f"[DEBUG GrADS] Generazione CTL con g2ctl per {filename_grib2}..."
-        )
-        # 1. Genera il file .ctl con g2ctl
-        cmd_g2ctl = f"g2ctl -0 {filename_grib2} > {filename_ctl}"
-        subprocess.run(
-            cmd_g2ctl,
-            shell=True,
-            check=True,
-            cwd=work_dir,
-            capture_output=True,
+        # 3. Genera l'indice (esattamente: gribmap -v -i custom_weather.ctl 0)
+        print("[GRADS HANDLER] Indicizzazione GRIB2 tramite gribmap...")
+        cmd_gribmap = f"gribmap -v -i {ctl_path} 0"
+        res_gribmap = subprocess.run(
+            cmd_gribmap, shell=True, capture_output=True, text=True, cwd=working_dir
         )
 
-        print(
-            f"[DEBUG GrADS] Indicizzazione IDX con gribmap per"
-            f" {filename_ctl}..."
-        )
-        # 2. Crea l'indice .idx con gribmap
-        cmd_gribmap = f"gribmap -v -i {filename_ctl}"
-        subprocess.run(
-            cmd_gribmap,
-            shell=True,
-            check=True,
-            cwd=work_dir,
-            capture_output=True,
-        )
+        if res_gribmap.returncode != 0:
+            raise RuntimeError(
+                f"Errore durante l'esecuzione di gribmap:\n{res_gribmap.stderr}"
+            )
 
-        # 3. Scrive lo script startup.gs minimale e reattivo
-        gs_script_path = os.path.join(work_dir, "startup.gs")
-        with open(gs_script_path, "w") as gs_file:
-            gs_file.write(f"open {filename_ctl}\n")
-            gs_file.write("query file\n")
-            gs_file.write("set gxout shaded\n")
-            gs_file.write("set mpdset hires\n")
+        # 4. Avvia GrADS o opengrads aprendo direttamente il file .ctl
+        grads_exec = "grads"
+        if subprocess.call(["which", "opengrads"], stdout=subprocess.DEVNULL) == 0:
+            grads_exec = "grads"
 
-        print(
-            "[DEBUG GrADS] Avvio di GrADS con esecuzione sequenziale di"
-            " startup.gs..."
+        print(f"[GRADS HANDLER] Avvio di {grads_exec} caricando {ctl_path}...")
+
+        subprocess.Popen(
+            [grads_exec, "-l", "-c", f"open {ctl_path}"],
+            cwd=working_dir
         )
-
-        # 4. Lancia GrADS passando l'esecuzione dello script
-        cmd_grads = "grads -l -c 'exec startup.gs'"
-        subprocess.Popen(cmd_grads, shell=True, cwd=work_dir)

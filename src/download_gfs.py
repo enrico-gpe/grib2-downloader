@@ -5,6 +5,7 @@
 
 from datetime import datetime, timedelta, timezone
 import urllib.request
+import time
 
 GFS_VARS = {
     # --- Geopotenziale ---
@@ -44,32 +45,20 @@ GFS_VARS = {
 class GfsDownloader:
 
     @staticmethod
-    def _fetch_url(url):
-        try:
-            req = urllib.request.Request(
-                url, headers={"User-Agent": "Mozilla/5.0"}
-            )
-            with urllib.request.urlopen(req, timeout=10) as resp:
-                data = resp.read()
-                return data if len(data) > 500 else None
-        except Exception:
-            return None
-
-    @staticmethod
-    def _get_time_params(base_dt, h):
-        target_dt = base_dt + timedelta(hours=h)
-        if h < 0:
-            target_run_hour = (target_dt.hour // 6) * 6
-            run_base = target_dt.replace(
-                hour=target_run_hour, minute=0, second=0, microsecond=0
-            )
-            f_hour = int((target_dt - run_base).total_seconds() // 3600)
-            return (
-                run_base.strftime("%Y%m%d"),
-                f"{run_base.hour:02d}",
-                f"{f_hour:03d}",
-            )
-        return base_dt.strftime("%Y%m%d"), f"{base_dt.hour:02d}", f"{h:03d}"
+    def _fetch_url(url, retries=3):
+        """Effettua la richiesta HTTP con riassunzione in caso di failure temporanea."""
+        for attempt in range(retries):
+            try:
+                req = urllib.request.Request(
+                    url, headers={"User-Agent": "Mozilla/5.0"}
+                )
+                with urllib.request.urlopen(req, timeout=15) as resp:
+                    data = resp.read()
+                    if len(data) > 500:
+                        return data
+            except Exception:
+                time.sleep(1)
+        return None
 
     @classmethod
     def download_gfs(
@@ -87,6 +76,8 @@ class GfsDownloader:
     ):
         steps = list(range(start_h, end_h + 1, step_h))
         now = datetime.now(timezone.utc)
+
+        # Determina il ciclo più recente (00, 06, 12, 18 UTC)
         run_dt = now.replace(minute=0, second=0, microsecond=0)
         run_dt = run_dt - timedelta(hours=run_dt.hour % 6)
 
@@ -94,15 +85,26 @@ class GfsDownloader:
         if not var_query:
             return []
 
-        filename_test = f"gfs.t{run_dt.hour:02d}z.pgrb2.0p25.f000"
-        test_url = f"https://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_0p25.pl?file={filename_test}&dir=%2Fgfs.{run_dt.strftime('%Y%m%d')}%2F{run_dt.hour:02d}%2Fatmos"
+        # Verifica disponibilità run nominale; in caso contrario retrocede di 6h
+        test_filename = f"gfs.t{run_dt.hour:02d}z.pgrb2.0p25.f000"
+        test_url = (
+            f"https://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_0p25.pl?"
+            f"file={test_filename}&dir=%2Fgfs.{run_dt.strftime('%Y%m%d')}%2F{run_dt.hour:02d}%2Fatmos"
+        )
 
-        if not cls._fetch_url(test_url):
+        offset_hours = 0
+        if not cls._fetch_url(test_url, retries=1):
             run_dt -= timedelta(hours=6)
+            offset_hours = 6  # Shift del forecast step per compensare il run precedente
 
         downloaded_buffers = []
         for idx, h in enumerate(steps):
-            c_date, c_run, c_fstep = cls._get_time_params(run_dt, h)
+            # Calcolo corretto dell'ora di forecast effettiva (f_step)
+            actual_fstep = h + offset_hours
+            c_date = run_dt.strftime("%Y%m%d")
+            c_run = f"{run_dt.hour:02d}"
+            c_fstep = f"{actual_fstep:03d}"
+
             filename = f"gfs.t{c_run}z.pgrb2.0p25.f{c_fstep}"
             url = (
                 f"https://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_0p25.pl?"
@@ -112,7 +114,7 @@ class GfsDownloader:
             )
 
             if status_callback:
-                status_callback(f"GFS Atmos {h}h ({idx+1}/{len(steps)})...")
+                status_callback(f"GFS Atmos +{h}h (f{c_fstep}) [{idx+1}/{len(steps)}]...")
 
             data = cls._fetch_url(url)
             if data:
