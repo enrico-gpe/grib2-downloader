@@ -23,7 +23,7 @@ class GRIB2DownloaderGUI:
 
     def __init__(self, root):
         self.root = root
-        self.root.title("Weather GRIB2 Downloader v3.2.1 (GFS / WW3 / ICON-EU)")
+        self.root.title("Weather GRIB2 Downloader v3.2.2 (GFS / WW3 / ICON-EU)")
         self.root.geometry("1280x850")
 
         # 1. Carica le impostazioni dal file JSON

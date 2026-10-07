@@ -1,4 +1,4 @@
-# Weather GRIB2 Downloader v3.2.1
+# Weather GRIB2 Downloader v3.2.2
 ## Automated Subregion Extraction with GFS, WW3 & ICON-EU + Direct XyGrib / GrADS Integration 🌍📊
 
 [![Python](https://img.shields.io/badge/python-3.8%2B-blue.svg)](https://www.python.org/)
@@ -7,7 +7,7 @@
 [![GrADS](https://img.shields.io/badge/GrADS-Compatible-green.svg)](http://cola.gmu.edu/grads/)
 [![XyGrib](https://img.shields.io/badge/XyGrib-Supported-brightgreen.svg)](https://opengribs.org/)
 
-Weather GRIB2 Downloader v3.2.0 is a powerful Python GUI application designed to extract subsetted **GFS** (0.25°), **GFS Wave**, and **ICON-EU** weather data in **GRIB2** format. It features an intuitive tabbed interface, persistent configuration management, and seamless one-click integration with **XyGrib** and **GrADS** for real-time visualization and spatial analysis.
+Weather GRIB2 Downloader v3.2.2 is a powerful Python GUI application designed to extract subsetted **GFS** (0.25°), **GFS Wave**, and **ICON-EU** weather data in **GRIB2** format. It features an intuitive tabbed interface, persistent configuration management, and seamless one-click integration with **XyGrib** and **GrADS** for real-time visualization and spatial analysis.
 
 ---
 
@@ -50,13 +50,17 @@ Weather GRIB2 Downloader v3.2.0 is a powerful Python GUI application designed to
 
 ---
 
-## 🚀 What's New in Version 3.2.1
+## 🚀 What's New in Version 3.2.2
 
-* **Multi-Model Engine Architecture:** Refactored backend into three independent downloader modules (`download_gfs.py`, `download_WW3.py`, `download_icon.py`).
-* **Context-Aware Dynamic Tabs:** The variable notebook dynamically updates visible tabs based on the selected model.
-* **WW3 Swell Partition Fix:** Corrected NOAA NOMADS HTTP filters by assigning `lev_1_in_sequence=on` to Swell variables (`SWELL`, `SWDIR`, `SWPER`), enabling complete 9-variable wave dataset downloads.
-* **GrADS `-0` Flag Compatibility:** Added the `-0` option to `g2ctl` execution in `grads_handler.py` to properly map surface/wave variables on a clean $Z=1$ coordinate level (`lev 0`).
-* **Codebase Cleanup:** Removed deprecated modules (`gfs_atmos.py` and `gfs_wave.py`) and updated `.gitignore`.
+### 🛠️ Bug Fixes & Code Cleanups
+- **Direct CTL Loading**: Replaced temporary startup script (`startup.gs`) execution with direct `.ctl` file invocation in GrADS, avoiding console clutter and syntax issues.
+- **Robust Multi-Step Indexing**: Aligned `gribmap` execution parameters (`gribmap -v -i file.ctl 0`) to resolve duplicate GRIB2 record conflicts from NOMADS (e.g., accumulated precipitation fields).
+- **GUI & Handler Stability**: Fixed indentation bugs and scoping issues (`UnboundLocalError`) in `grads_handler.py`.
+- **Console Aesthetics**: Neutralized terminal color override issues on OpenGrADS invocations.
+
+### 🌐 Compatibility & Workflow
+- Fully validated seamless 5-day continuous forecast indexing (`Tsize=41`).
+- Preserved run fallback logic (`offset_hours`) for continuity during NOAA GFS update windows.
 
 ---
 
