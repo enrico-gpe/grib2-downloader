@@ -354,15 +354,6 @@ class GRIB2DownloaderGUI:
             self.ent_end_h.insert(0, "120")
             self.ent_step_h.delete(0, tk.END)
             self.ent_step_h.insert(0, "3")
-
-            self.ent_north.delete(0, tk.END)
-            self.ent_north.insert(0, "48.0")
-            self.ent_south.delete(0, tk.END)
-            self.ent_south.insert(0, "43.5")
-            self.ent_west.delete(0, tk.END)
-            self.ent_west.insert(0, "5.0")
-            self.ent_east.delete(0, tk.END)
-            self.ent_east.insert(0, "16.0")
             self.draw_bbox_on_map()
 
         self.update_variable_checkboxes()
