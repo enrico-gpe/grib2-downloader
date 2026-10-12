@@ -54,7 +54,7 @@ class GfsDownloader:
                 )
                 with urllib.request.urlopen(req, timeout=15) as resp:
                     data = resp.read()
-                    if len(data) > 500:
+                    if data[:4] == b"GRIB":
                         return data
             except Exception:
                 time.sleep(1)
@@ -83,7 +83,7 @@ class GfsDownloader:
 
         var_query = "".join([GFS_VARS[v] for v in selected_vars if v in GFS_VARS])
         if not var_query:
-            return []
+            return [], []
 
         # Verifica disponibilità run nominale; in caso contrario retrocede di 6h
         test_filename = f"gfs.t{run_dt.hour:02d}z.pgrb2.0p25.f000"
@@ -98,6 +98,7 @@ class GfsDownloader:
             offset_hours = 6  # Shift del forecast step per compensare il run precedente
 
         downloaded_buffers = []
+        missing_steps = []
         for idx, h in enumerate(steps):
             # Calcolo corretto dell'ora di forecast effettiva (f_step)
             actual_fstep = h + offset_hours
@@ -119,8 +120,10 @@ class GfsDownloader:
             data = cls._fetch_url(url)
             if data:
                 downloaded_buffers.append(data)
+            else:
+                missing_steps.append(h)
 
             if progress_callback:
                 progress_callback(idx + 1, len(steps))
 
-        return downloaded_buffers
+        return downloaded_buffers, missing_steps
