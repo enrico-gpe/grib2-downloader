@@ -354,15 +354,6 @@ class GRIB2DownloaderGUI:
             self.ent_end_h.insert(0, "120")
             self.ent_step_h.delete(0, tk.END)
             self.ent_step_h.insert(0, "3")
-
-            self.ent_north.delete(0, tk.END)
-            self.ent_north.insert(0, "48.0")
-            self.ent_south.delete(0, tk.END)
-            self.ent_south.insert(0, "43.5")
-            self.ent_west.delete(0, tk.END)
-            self.ent_west.insert(0, "5.0")
-            self.ent_east.delete(0, tk.END)
-            self.ent_east.insert(0, "16.0")
             self.draw_bbox_on_map()
 
         self.update_variable_checkboxes()
@@ -611,6 +602,7 @@ class GRIB2DownloaderGUI:
                 print(f"[DOWNLOAD STATUS] {text}")
 
             downloaded_buffers = []
+            missing_steps = []
             north = float(self.ent_north.get())
             south = float(self.ent_south.get())
             west = float(self.ent_west.get())
@@ -621,7 +613,7 @@ class GRIB2DownloaderGUI:
 
             # ESECUZIONE DOWNLOAD PER MODELLO
             if "GFS" in selected_model:
-                downloaded_buffers = GfsDownloader.download_gfs(
+                downloaded_buffers, missing_steps = GfsDownloader.download_gfs(
                     north=north,
                     south=south,
                     west=west,
@@ -634,7 +626,7 @@ class GRIB2DownloaderGUI:
                     status_callback=update_status,
                 )
             elif "WW3" in selected_model:
-                downloaded_buffers = Ww3Downloader.download_ww3(
+                downloaded_buffers, missing_steps = Ww3Downloader.download_ww3(
                     north=north,
                     south=south,
                     west=west,
@@ -647,7 +639,7 @@ class GRIB2DownloaderGUI:
                     status_callback=update_status,
                 )
             else:  # ICON-EU
-                downloaded_buffers = IconEuDownloader.download_icon_eu(
+                downloaded_buffers, missing_steps = IconEuDownloader.download_icon_eu(
                     selected_vars=selected_vars,
                     progress_callback=update_progress,
                     status_callback=update_status,
@@ -665,15 +657,33 @@ class GRIB2DownloaderGUI:
                 self.last_downloaded_file = out_path
                 self.root.after(0, lambda: self.btn_grads.config(state=tk.NORMAL))
                 self.root.after(0, lambda: self.btn_xygrib.config(state=tk.NORMAL))
-
-                self.root.after(0, lambda: self.lbl_status.config(
-                    text=f"Completato! ({size_mb:.2f} MB)", foreground="green"
-                ))
                 print(f"[DEBUG] Download completato e salvato in {out_path} ({size_mb:.2f} MB)")
-                self.root.after(0, lambda: messagebox.showinfo(
-                    "Successo",
-                    f"File salvato con successo:\n{out_path}\n\nDimensione: {size_mb:.2f} MB",
-                ))
+
+                if missing_steps:
+                    n_missing = len(missing_steps)
+                    h_min, h_max = min(missing_steps), max(missing_steps)
+                    missing_msg = (
+                        f"{n_missing} step di previsione non sono stati scaricati\n"
+                        f"(probabile run non ancora pubblicata dal server).\n\n"
+                        f"Step mancanti: da +{h_min}h a +{h_max}h.\n\n"
+                        f"Il file è incompleto:\n{out_path}"
+                    )
+                    self.root.after(0, lambda: self.lbl_status.config(
+                        text=f"Completato con {n_missing} step mancanti (da +{h_min}h a +{h_max}h)",
+                        foreground="orange",
+                    ))
+                    self.root.after(0, lambda: messagebox.showwarning(
+                        "Download incompleto", missing_msg
+                    ))
+                    print(f"[DEBUG] {missing_msg}")
+                else:
+                    self.root.after(0, lambda: self.lbl_status.config(
+                        text=f"Completato! ({size_mb:.2f} MB)", foreground="green"
+                    ))
+                    self.root.after(0, lambda: messagebox.showinfo(
+                        "Successo",
+                        f"File salvato con successo:\n{out_path}\n\nDimensione: {size_mb:.2f} MB",
+                    ))
             else:
                 self.root.after(0, lambda: self.lbl_status.config(
                     text="Download fallito.", foreground="red"

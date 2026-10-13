@@ -54,11 +54,37 @@ class GfsDownloader:
                 )
                 with urllib.request.urlopen(req, timeout=15) as resp:
                     data = resp.read()
-                    if len(data) > 500:
+                    if data[:4] == b"GRIB":
                         return data
             except Exception:
                 time.sleep(1)
         return None
+
+    @staticmethod
+    def _get_time_params(base_dt, h, offset_hours=0):
+        """Mappa lo step richiesto sul run e sul file fXXX corretto.
+
+        Per le ore negative (ore passate) il file f-XXX non esiste: lo
+        step viene mappato sul run precedente piu' vicino, con un
+        forecast step ridotto (0-5h) che mantiene la stessa validita'
+        temporale assoluta."""
+        if h < 0:
+            target_dt = base_dt + timedelta(hours=h)
+            target_run_hour = (target_dt.hour // 6) * 6
+            run_base = target_dt.replace(
+                hour=target_run_hour, minute=0, second=0, microsecond=0
+            )
+            f_hour = int((target_dt - run_base).total_seconds() // 3600)
+            return (
+                run_base.strftime("%Y%m%d"),
+                f"{run_base.hour:02d}",
+                f"{f_hour:03d}",
+            )
+        return (
+            base_dt.strftime("%Y%m%d"),
+            f"{base_dt.hour:02d}",
+            f"{h + offset_hours:03d}",
+        )
 
     @classmethod
     def download_gfs(
@@ -83,7 +109,7 @@ class GfsDownloader:
 
         var_query = "".join([GFS_VARS[v] for v in selected_vars if v in GFS_VARS])
         if not var_query:
-            return []
+            return [], []
 
         # Verifica disponibilità run nominale; in caso contrario retrocede di 6h
         test_filename = f"gfs.t{run_dt.hour:02d}z.pgrb2.0p25.f000"
@@ -98,12 +124,9 @@ class GfsDownloader:
             offset_hours = 6  # Shift del forecast step per compensare il run precedente
 
         downloaded_buffers = []
+        missing_steps = []
         for idx, h in enumerate(steps):
-            # Calcolo corretto dell'ora di forecast effettiva (f_step)
-            actual_fstep = h + offset_hours
-            c_date = run_dt.strftime("%Y%m%d")
-            c_run = f"{run_dt.hour:02d}"
-            c_fstep = f"{actual_fstep:03d}"
+            c_date, c_run, c_fstep = cls._get_time_params(run_dt, h, offset_hours)
 
             filename = f"gfs.t{c_run}z.pgrb2.0p25.f{c_fstep}"
             url = (
@@ -119,8 +142,10 @@ class GfsDownloader:
             data = cls._fetch_url(url)
             if data:
                 downloaded_buffers.append(data)
+            else:
+                missing_steps.append(h)
 
             if progress_callback:
                 progress_callback(idx + 1, len(steps))
 
-        return downloaded_buffers
+        return downloaded_buffers, missing_steps

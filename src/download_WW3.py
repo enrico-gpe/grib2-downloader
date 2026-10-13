@@ -34,7 +34,7 @@ class Ww3Downloader:
             )
             with urllib.request.urlopen(req, timeout=10) as resp:
                 data = resp.read()
-                return data if len(data) > 500 else None
+                return data if data[:4] == b"GRIB" else None
         except Exception:
             return None
 
@@ -75,7 +75,7 @@ class Ww3Downloader:
 
         var_query = "".join([WW3_VARS[v] for v in selected_vars if v in WW3_VARS])
         if not var_query:
-            return []
+            return [], []
 
         filename_test = f"gfswave.t{run_dt.hour:02d}z.global.0p25.f000.grib2"
         test_url = (
@@ -87,6 +87,7 @@ class Ww3Downloader:
             run_dt -= timedelta(hours=6)
 
         downloaded_buffers = []
+        missing_steps = []
         for idx, h in enumerate(steps):
             c_date, c_run, c_fstep = cls._get_time_params(run_dt, h)
             filename = f"gfswave.t{c_run}z.global.0p25.f{c_fstep}.grib2"
@@ -103,8 +104,10 @@ class Ww3Downloader:
             data = cls._fetch_url(url)
             if data:
                 downloaded_buffers.append(data)
+            else:
+                missing_steps.append(h)
 
             if progress_callback:
                 progress_callback(idx + 1, len(steps))
 
-        return downloaded_buffers
+        return downloaded_buffers, missing_steps

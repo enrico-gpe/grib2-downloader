@@ -27,7 +27,7 @@ class IconEuDownloader:
             )
             with urllib.request.urlopen(req, timeout=10) as resp:
                 data = resp.read()
-                return data if len(data) > 500 else None
+                return data if data[:4] == b"GRIB" else None
         except Exception:
             return None
 
@@ -62,13 +62,14 @@ class IconEuDownloader:
 
         run_dt = cls.find_latest_icon_run()
         if not run_dt:
-            return None
+            return [], []
 
         date_str = run_dt.strftime("%Y%m%d")
         run_str = f"{run_dt.hour:02d}"
         valid_steps = list(range(0, 49, 3))
 
         downloaded_buffers = []
+        missing_steps = []
         for idx, h in enumerate(valid_steps):
             if status_callback:
                 status_callback(
@@ -88,8 +89,10 @@ class IconEuDownloader:
 
             if step_buffer:
                 downloaded_buffers.append(bytes(step_buffer))
+            else:
+                missing_steps.append(h)
 
             if progress_callback:
                 progress_callback(idx + 1, len(valid_steps))
 
-        return downloaded_buffers
+        return downloaded_buffers, missing_steps
