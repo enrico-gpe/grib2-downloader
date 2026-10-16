@@ -1,7 +1,21 @@
-# gui_2.py
+# gui.py
 # ----------------------------------------------------------------------
 # Copyright (C) 2026 Enrico Pozzi - GNU GPLv3
 # ----------------------------------------------------------------------
+
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 
 import os
 import subprocess
@@ -17,13 +31,13 @@ from .download_icon import ICON_VARS, IconEuDownloader
 from .grads_handler import GradsHandler
 from .xygrib_handler import XyGribHandler
 from .config_manager import ConfigManager
-
+from .download_gfs_ww3 import GfsWw3Downloader
 
 class GRIB2DownloaderGUI:
 
     def __init__(self, root):
         self.root = root
-        self.root.title("Weather GRIB2 Downloader v3.2.3 (GFS / WW3 / ICON-EU)")
+        self.root.title("Weather GRIB2 Downloader v3.2.4 (GFS / WW3 / ICON-EU)")
         self.root.geometry("1280x850")
 
         # 1. Carica le impostazioni dal file JSON
@@ -123,7 +137,8 @@ class GRIB2DownloaderGUI:
             values=[
                 "GFS (NOAA NOMADS)",
                 "WW3 (NOAA WaveWatch III)",
-                "ICON-EU (DWD OpenData)"
+                "ICON-EU (DWD OpenData)",
+                "GFS + WW3 (Atmosfera & Onde)"  # <-- NUOVO MODELLO AGGIUNTO
             ],
             state="readonly",
         )
@@ -368,7 +383,15 @@ class GRIB2DownloaderGUI:
 
         model_name = self.cmb_model.get()
 
-        if "GFS" in model_name:
+        surface_keys = [
+            "Surface Temp (TMP sfc)", "2m Temperature (TMP 2m)",
+            "Relative Humidity 2m (RH 2m)", "Pressione MSL",
+            "Total Precip (APCP sfc)", "CAPE (Surface)", "CIN (Surface)",
+            "10m Wind Vector (UGRD/VGRD)", "Surface Wind Gust (GUST)"
+        ]
+
+        # 1. GFS singolo (esclude GFS + WW3)
+        if "GFS" in model_name and "WW3" not in model_name:
             saved_key = "selected_vars_gfs"
             saved_vars = self.config.get(saved_key, None)
 
@@ -377,25 +400,18 @@ class GRIB2DownloaderGUI:
                 self.vars_notebook.add(tab_frame, text=f" {tab_title} ")
                 self.tabs[tab_key] = tab_frame
 
-            surface_keys = [
-                "Surface Temp (TMP sfc)", "2m Temperature (TMP 2m)",
-                "Relative Humidity 2m (RH 2m)", "Pressione MSL",
-                "Total Precip (APCP sfc)", "CAPE (Surface)", "CIN (Surface)",
-                "10m Wind Vector (UGRD/VGRD)", "Surface Wind Gust (GUST)"
-            ]
-
             for name in GFS_VARS.keys():
                 initial_val = (
                     True if saved_vars is None or len(saved_vars) == 0 else (name in saved_vars)
                 )
                 var = tk.BooleanVar(value=initial_val)
                 self.var_checks[name] = var
-
                 parent = self.tabs["surface"] if name in surface_keys else self.tabs["quota"]
                 chk = ttk.Checkbutton(parent, text=name, variable=var)
                 chk.pack(anchor="w", pady=1)
 
-        elif "WW3" in model_name:
+        # 2. WW3 singolo
+        elif "WW3" in model_name and "GFS" not in model_name:
             saved_key = "selected_vars_ww3"
             saved_vars = self.config.get(saved_key, None)
 
@@ -412,7 +428,8 @@ class GRIB2DownloaderGUI:
                 chk = ttk.Checkbutton(self.tabs["wave"], text=name, variable=var)
                 chk.pack(anchor="w", pady=1)
 
-        else:  # ICON-EU
+        # 3. ICON-EU
+        elif "ICON-EU" in model_name:
             saved_key = "selected_vars_icon"
             saved_vars = self.config.get(saved_key, None)
 
@@ -427,6 +444,38 @@ class GRIB2DownloaderGUI:
                 var = tk.BooleanVar(value=initial_val)
                 self.var_checks[name] = var
                 chk = ttk.Checkbutton(self.tabs["surface"], text=name, variable=var)
+                chk.pack(anchor="w", pady=1)
+
+        # 4. GFS + WW3 (Modello combinato Atmosfera & Onde)
+        elif "GFS + WW3" in model_name:
+            saved_key = "selected_vars_gfs_ww3"
+            saved_vars = self.config.get(saved_key, None)
+
+            # Crea le tre tab: Superficie, Quota e Onde
+            for tab_key, tab_title in [("surface", "🌐 Superficie"), ("quota", "☁️ Quota"), ("wave", "🌊 Onde")]:
+                tab_frame = ttk.Frame(self.vars_notebook, padding=5)
+                self.vars_notebook.add(tab_frame, text=f" {tab_title} ")
+                self.tabs[tab_key] = tab_frame
+
+            # Popola le variabili GFS
+            for name in GFS_VARS.keys():
+                initial_val = (
+                    True if saved_vars is None or len(saved_vars) == 0 else (name in saved_vars)
+                )
+                var = tk.BooleanVar(value=initial_val)
+                self.var_checks[name] = var
+                parent = self.tabs["surface"] if name in surface_keys else self.tabs["quota"]
+                chk = ttk.Checkbutton(parent, text=name, variable=var)
+                chk.pack(anchor="w", pady=1)
+
+            # Popola le variabili WW3
+            for name in WW3_VARS.keys():
+                initial_val = (
+                    True if saved_vars is None or len(saved_vars) == 0 else (name in saved_vars)
+                )
+                var = tk.BooleanVar(value=initial_val)
+                self.var_checks[name] = var
+                chk = ttk.Checkbutton(self.tabs["wave"], text=name, variable=var)
                 chk.pack(anchor="w", pady=1)
 
     def select_all_in_current_tab(self):
@@ -612,7 +661,20 @@ class GRIB2DownloaderGUI:
             step_h = int(self.ent_step_h.get())
 
             # ESECUZIONE DOWNLOAD PER MODELLO
-            if "GFS" in selected_model:
+            if "GFS + WW3" in selected_model:
+                downloaded_buffers, missing_steps = GfsWw3Downloader.download_gfs_ww3(
+                    north=north,
+                    south=south,
+                    west=west,
+                    east=east,
+                    start_h=start_h,
+                    end_h=end_h,
+                    step_h=step_h,
+                    selected_vars=selected_vars,
+                    progress_callback=update_progress,
+                    status_callback=update_status,
+                )
+            elif "GFS" in selected_model:
                 downloaded_buffers, missing_steps = GfsDownloader.download_gfs(
                     north=north,
                     south=south,

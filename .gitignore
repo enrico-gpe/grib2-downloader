@@ -5,8 +5,9 @@ venv/
 .venv/
 settings.json
 
-# Moduli in fase di sviluppo isolato
+# Sviluppo Viewer (esclude i vecchi file sparsi e la nuova cartella in lavorazione)
 mappa_utils.py
 src/mappa_utils.py
 forecast_player.py
 src/forecast_player.py
+src/viewer/
