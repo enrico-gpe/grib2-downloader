@@ -1,4 +1,4 @@
-# Weather GRIB2 Downloader v3.2.3
+# Weather GRIB2 Downloader v3.2.4
 ## Automated Subregion Extraction with GFS, WW3 & ICON-EU + Direct XyGrib / GrADS Integration 🌍📊
 
 [![Python](https://img.shields.io/badge/python-3.8%2B-blue.svg)](https://www.python.org/)
@@ -7,9 +7,7 @@
 [![GrADS](https://img.shields.io/badge/GrADS-Compatible-green.svg)](http://cola.gmu.edu/grads/)
 [![XyGrib](https://img.shields.io/badge/XyGrib-Supported-brightgreen.svg)](https://opengribs.org/)
 
-Weather GRIB2 Downloader v3.2.3 is a powerful Python GUI application designed to extract subsetted **GFS** (0.25°), **GFS Wave**, and **ICON-EU** weather data in **GRIB2** format. It features an intuitive tabbed interface, persistent configuration management, and seamless one-click integration with **XyGrib** and **GrADS** for real-time visualization and spatial analysis.
-
----
+Weather GRIB2 Downloader v3.2.4 is a powerful Python GUI application designed to extract subsetted **GFS** (0.25°), **GFS Wave**, and **ICON-EU** weather data in **GRIB2** format. It features an intuitive tabbed interface, persistent configuration management, a dedicated **Windows runner (`run.bat`)** for seamless one-click execution, and direct integration with **XyGrib** and **GrADS** for real-time visualization and spatial analysis.
 
 ## 🌟 Key Features
 
